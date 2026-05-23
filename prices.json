@@ -1,0 +1,90 @@
+{
+  "claude-haiku-4-5": {
+    "provider": "Anthropic",
+    "label": "Claude Haiku 4.5",
+    "inputPer1M": 0.80,
+    "outputPer1M": 4.00,
+    "tokenizer": "approximate",
+    "charsPerToken": 4.0
+  },
+  "claude-sonnet-4-6": {
+    "provider": "Anthropic",
+    "label": "Claude Sonnet 4.6",
+    "inputPer1M": 3.00,
+    "outputPer1M": 15.00,
+    "tokenizer": "approximate",
+    "charsPerToken": 4.0
+  },
+  "claude-opus-4-7": {
+    "provider": "Anthropic",
+    "label": "Claude Opus 4.7",
+    "inputPer1M": 15.00,
+    "outputPer1M": 75.00,
+    "tokenizer": "approximate",
+    "charsPerToken": 4.0
+  },
+  "gpt-3.5-turbo": {
+    "provider": "OpenAI",
+    "label": "GPT-3.5 Turbo",
+    "inputPer1M": 0.50,
+    "outputPer1M": 1.50,
+    "tokenizer": "tiktoken",
+    "encoding": "cl100k_base"
+  },
+  "gpt-4": {
+    "provider": "OpenAI",
+    "label": "GPT-4",
+    "inputPer1M": 30.00,
+    "outputPer1M": 60.00,
+    "tokenizer": "tiktoken",
+    "encoding": "cl100k_base"
+  },
+  "gpt-4o": {
+    "provider": "OpenAI",
+    "label": "GPT-4o",
+    "inputPer1M": 2.50,
+    "outputPer1M": 10.00,
+    "tokenizer": "tiktoken",
+    "encoding": "o200k_base"
+  },
+  "gpt-4o-mini": {
+    "provider": "OpenAI",
+    "label": "GPT-4o Mini",
+    "inputPer1M": 0.15,
+    "outputPer1M": 0.60,
+    "tokenizer": "tiktoken",
+    "encoding": "o200k_base"
+  },
+  "gemini-1.5-flash": {
+    "provider": "Gemini",
+    "label": "Gemini 1.5 Flash",
+    "inputPer1M": 0.075,
+    "outputPer1M": 0.30,
+    "tokenizer": "approximate",
+    "charsPerToken": 3.5
+  },
+  "gemini-1.5-pro": {
+    "provider": "Gemini",
+    "label": "Gemini 1.5 Pro",
+    "inputPer1M": 1.25,
+    "outputPer1M": 5.00,
+    "tokenizer": "approximate",
+    "charsPerToken": 3.5
+  },
+  "gemini-2.0-flash": {
+    "provider": "Gemini",
+    "label": "Gemini 2.0 Flash",
+    "inputPer1M": 0.10,
+    "outputPer1M": 0.40,
+    "tokenizer": "approximate",
+    "charsPerToken": 3.5
+  },
+  "gemini-2.5-pro": {
+    "provider": "Gemini",
+    "label": "Gemini 2.5 Pro",
+    "inputPer1M": 1.25,
+    "outputPer1M": 10.00,
+    "tokenizer": "approximate",
+    "charsPerToken": 3.5
+  }
+}
