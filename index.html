@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JsonsNTokens — Token Counter & JSON Prettifier</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="app-wrapper">
+
+  <!-- HEADER -->
+  <header>
+    <div>
+      <div class="brand-name">JsonsNTokens</div>
+      <div class="brand-tagline">Token counter &amp; JSON prettifier for LLM developers</div>
+    </div>
+    <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+      <span id="theme-icon">🌙</span>
+    </button>
+  </header>
+
+  <!-- TABS -->
+  <div class="tabs" role="tablist">
+    <button class="tab-btn active" id="tab-tokens" role="tab" aria-selected="true" aria-controls="panel-tokens">
+      ⚡ Token Counter
+    </button>
+    <button class="tab-btn" id="tab-json" role="tab" aria-selected="false" aria-controls="panel-json">
+      { } JSON Prettifier
+    </button>
+  </div>
+
+  <!-- ===== TOKEN COUNTER PANEL ===== -->
+  <div class="panel active" id="panel-tokens" role="tabpanel" aria-labelledby="tab-tokens">
+
+    <div class="form-row">
+      <label class="label" for="model-select">Model</label>
+      <select id="model-select">
+        <!-- populated by app.js from prices.json -->
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label class="label" for="token-input">Your text or prompt</label>
+      <textarea
+        id="token-input"
+        rows="7"
+        placeholder="Paste your prompt or text here — token count updates as you type…"
+      ></textarea>
+    </div>
+
+    <!-- Result card (hidden until text entered) -->
+    <div class="result-card hidden" id="result-card">
+      <div>
+        <div class="result-count">
+          <span id="result-count-num">0</span><span class="unit">tokens</span>
+        </div>
+        <div class="result-costs">
+          <div class="result-cost-item">
+            <strong>Input cost:</strong> <span id="result-input-cost">—</span>
+          </div>
+          <div class="result-cost-item">
+            <strong>Output / 1M:</strong> <span id="result-output-rate">—</span>
+          </div>
+        </div>
+      </div>
+      <div class="result-meta">
+        <span class="result-icon">⚡</span>
+        <span class="badge" id="result-badge" style="display:none">~ estimated</span>
+      </div>
+    </div>
+
+    <!-- Suggestions panel (hidden until text entered) -->
+    <div class="suggestions hidden" id="suggestions-panel">
+      <div class="suggestions-header">
+        💡 Token Reduction Tips
+        <span class="badge" id="tips-count-badge">0 suggestions</span>
+      </div>
+
+      <!-- Input tips -->
+      <div class="suggestions-section" id="input-tips-section">
+        <div class="suggestions-section-title">Input Analysis</div>
+        <div id="input-tips-list">
+          <!-- populated by app.js -->
+        </div>
+        <div class="clean-row" id="clean-row" style="display:none">
+          <button class="btn btn-primary" id="clean-btn">✨ Clean it</button>
+          <span class="clean-savings" id="clean-savings-text"></span>
+        </div>
+      </div>
+
+      <!-- Output tips -->
+      <div class="suggestions-section">
+        <div class="suggestions-section-title">Output Reduction Tips</div>
+        <div id="output-tips-list">
+          <!-- populated by app.js -->
+        </div>
+      </div>
+    </div>
+
+    <div class="prices-note" id="prices-note" style="display:none">
+      Prices as of May 2026 —
+      <a href="https://www.anthropic.com/pricing" target="_blank" rel="noopener">Anthropic</a> ·
+      <a href="https://openai.com/pricing" target="_blank" rel="noopener">OpenAI</a> ·
+      <a href="https://cloud.google.com/vertex-ai/generative-ai/pricing" target="_blank" rel="noopener">Gemini</a>
+    </div>
+
+  </div><!-- /panel-tokens -->
+
+  <!-- ===== JSON PRETTIFIER PANEL ===== -->
+  <div class="panel" id="panel-json" role="tabpanel" aria-labelledby="tab-json">
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="json-format-btn">Format</button>
+      <button class="btn btn-secondary" id="json-minify-btn">Minify</button>
+      <button class="btn btn-secondary" id="json-validate-btn">Validate</button>
+    </div>
+
+    <div class="json-grid">
+      <div class="json-panel">
+        <span class="label">Input</span>
+        <textarea
+          id="json-input"
+          rows="14"
+          style="font-family:'JetBrains Mono','Fira Code',monospace;font-size:13px;"
+          placeholder='Paste your JSON here…'
+        ></textarea>
+      </div>
+
+      <div class="json-panel">
+        <span class="label">Output</span>
+        <div class="json-output" id="json-output" aria-live="polite">
+          <!-- populated by app.js -->
+        </div>
+        <div class="json-copy-row">
+          <button class="json-copy-btn" id="json-copy-btn">📋 Copy</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panel-json -->
+
+</div><!-- /app-wrapper -->
+
+<script src="app.js" defer></script>
+</body>
+</html>
