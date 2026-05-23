@@ -543,6 +543,10 @@ function jsonValidate() {
 
 function countJsonKeys(obj) {
   if (typeof obj !== 'object' || obj === null) return 0;
+  if (Array.isArray(obj)) {
+    // Arrays have no keys — only recurse into elements
+    return obj.reduce((acc, v) => acc + countJsonKeys(v), 0);
+  }
   let count = Object.keys(obj).length;
   for (const v of Object.values(obj)) count += countJsonKeys(v);
   return count;
