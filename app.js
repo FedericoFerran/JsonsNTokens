@@ -200,3 +200,54 @@ function formatCost(usd) {
 function calcCost(tokens, per1M) {
   return (tokens / 1_000_000) * per1M;
 }
+
+// ── TOKEN COUNTER UI ───────────────────────────────────────────────────────
+
+let countDebounceTimer = null;
+
+function initTokenCounter() {
+  const input = document.getElementById('token-input');
+  const modelSelect = document.getElementById('model-select');
+
+  input.addEventListener('input', () => {
+    clearTimeout(countDebounceTimer);
+    countDebounceTimer = setTimeout(updateTokenCount, 120);
+  });
+
+  modelSelect.addEventListener('change', updateTokenCount);
+
+  // Show prices note once model is selected
+  document.getElementById('prices-note').style.display = 'block';
+}
+
+async function updateTokenCount() {
+  const text = document.getElementById('token-input').value;
+  const model = getSelectedModel();
+
+  if (!text.trim()) {
+    document.getElementById('result-card').classList.add('hidden');
+    document.getElementById('suggestions-panel').classList.add('hidden');
+    return;
+  }
+
+  const { count, method } = await countTokens(text, model);
+
+  // Update result card
+  document.getElementById('result-count-num').textContent = count.toLocaleString();
+
+  const inputCost = calcCost(count, model.inputPer1M);
+  document.getElementById('result-input-cost').textContent = formatCost(inputCost);
+  document.getElementById('result-output-rate').textContent = '$' + model.outputPer1M.toFixed(2);
+
+  const badge = document.getElementById('result-badge');
+  if (method === 'approximate') {
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+
+  document.getElementById('result-card').classList.remove('hidden');
+
+  // Trigger suggestions update
+  updateSuggestions(text);
+}
