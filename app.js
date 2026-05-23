@@ -210,6 +210,12 @@ function initTokenCounter() {
   const modelSelect = document.getElementById('model-select');
 
   input.addEventListener('input', () => {
+    // If user manually edits after a Clean it, discard the undo state
+    if (previousText !== null) {
+      previousText = null;
+      const cleanBtn = document.getElementById('clean-btn');
+      if (cleanBtn) cleanBtn.textContent = '✨ Clean it';
+    }
     clearTimeout(countDebounceTimer);
     countDebounceTimer = setTimeout(updateTokenCount, 120);
   });
