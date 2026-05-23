@@ -188,10 +188,10 @@ async function loadTiktoken(encoding) {
  * Format a cost in USD. Shows 4 decimal places for small values.
  */
 function formatCost(usd) {
-  if (usd === 0) return '$0.00';
+  if (usd === 0)    return '$0.00';
   if (usd < 0.0001) return '<$0.0001';
   if (usd < 0.01)   return '$' + usd.toFixed(4);
-  return '$' + usd.toFixed(4);
+  return '$' + usd.toFixed(2);
 }
 
 /**
@@ -479,7 +479,7 @@ function getJsonInput() {
 
 function setJsonOutput(html, isError = false) {
   const out = document.getElementById('json-output');
-  out.innerHTML = html;
+  out.innerHTML = isError ? escapeHtml(html) : html;
   out.classList.toggle('error', isError);
 }
 
