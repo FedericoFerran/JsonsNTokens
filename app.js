@@ -131,7 +131,7 @@ function getSelectedModel() {
 
 // ── TOKENIZER ──────────────────────────────────────────────────────────────
 
-let tiktokenEncoder = null;     // cached tiktoken encoder instance
+const tiktokenEncoders = new Map(); // cached tiktoken encoders by encoding name
 let tiktokenLoading = false;
 let tiktokenFailed = false;
 
@@ -162,10 +162,11 @@ async function countWithTiktoken(text, encoding) {
   }
 
   try {
-    if (!tiktokenEncoder) {
-      tiktokenEncoder = await loadTiktoken(encoding);
+    if (!tiktokenEncoders.has(encoding)) {
+      tiktokenEncoders.set(encoding, await loadTiktoken(encoding));
     }
-    const tokens = tiktokenEncoder.encode(text);
+    const encoder = tiktokenEncoders.get(encoding);
+    const tokens = encoder.encode(text);
     return { count: tokens.length, method: 'exact' };
   } catch (err) {
     console.warn('tiktoken error, falling back to approximation:', err.message);
