@@ -463,3 +463,116 @@ function copyToClipboard(text, btn) {
     setTimeout(() => { btn.textContent = original; }, 2000);
   });
 }
+
+// ── JSON PRETTIFIER ────────────────────────────────────────────────────────
+
+function initJsonPrettifier() {
+  document.getElementById('json-format-btn').addEventListener('click', jsonFormat);
+  document.getElementById('json-minify-btn').addEventListener('click', jsonMinify);
+  document.getElementById('json-validate-btn').addEventListener('click', jsonValidate);
+  document.getElementById('json-copy-btn').addEventListener('click', jsonCopy);
+}
+
+function getJsonInput() {
+  return document.getElementById('json-input').value;
+}
+
+function setJsonOutput(html, isError = false) {
+  const out = document.getElementById('json-output');
+  out.innerHTML = html;
+  out.classList.toggle('error', isError);
+}
+
+function parseJsonSafely(text) {
+  try {
+    return { value: JSON.parse(text), error: null };
+  } catch (err) {
+    const msg = err.message;
+    // Try to extract position info from the error message
+    const posMatch = msg.match(/position (\d+)/i) || msg.match(/at (\d+)/i);
+    if (posMatch) {
+      const pos = parseInt(posMatch[1], 10);
+      const before = text.substring(0, pos);
+      const line = (before.match(/\n/g) || []).length + 1;
+      const col = pos - before.lastIndexOf('\n');
+      return { value: null, error: `${msg}\n\nLine ${line}, column ${col}` };
+    }
+    return { value: null, error: msg };
+  }
+}
+
+function jsonFormat() {
+  const text = getJsonInput().trim();
+  if (!text) return setJsonOutput('');
+
+  const { value, error } = parseJsonSafely(text);
+  if (error) {
+    setJsonOutput('❌ Invalid JSON\n\n' + error, true);
+    return;
+  }
+
+  const pretty = JSON.stringify(value, null, 2);
+  setJsonOutput(syntaxHighlight(pretty));
+}
+
+function jsonMinify() {
+  const text = getJsonInput().trim();
+  if (!text) return setJsonOutput('');
+
+  const { value, error } = parseJsonSafely(text);
+  if (error) {
+    setJsonOutput('❌ Invalid JSON\n\n' + error, true);
+    return;
+  }
+
+  setJsonOutput(escapeHtml(JSON.stringify(value)));
+}
+
+function jsonValidate() {
+  const text = getJsonInput().trim();
+  if (!text) return setJsonOutput('');
+
+  const { value, error } = parseJsonSafely(text);
+  if (error) {
+    setJsonOutput('❌ Invalid JSON\n\n' + error, true);
+  } else {
+    const keys = countJsonKeys(value);
+    setJsonOutput(`✅ Valid JSON\n\n${keys} key${keys !== 1 ? 's' : ''} · ${text.length.toLocaleString()} chars`);
+  }
+}
+
+function countJsonKeys(obj) {
+  if (typeof obj !== 'object' || obj === null) return 0;
+  let count = Object.keys(obj).length;
+  for (const v of Object.values(obj)) count += countJsonKeys(v);
+  return count;
+}
+
+function jsonCopy() {
+  const out = document.getElementById('json-output');
+  const btn = document.getElementById('json-copy-btn');
+  const text = out.innerText || out.textContent;
+  if (!text.trim()) return;
+  copyToClipboard(text, btn);
+}
+
+/**
+ * Syntax-highlight a JSON string by wrapping tokens in <span> tags.
+ * Works on the output of JSON.stringify(), which is always valid.
+ */
+function syntaxHighlight(json) {
+  // Escape HTML first, then wrap tokens
+  const escaped = escapeHtml(json);
+  return escaped.replace(
+    /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
+    match => {
+      let cls = 'jn'; // number
+      if (/^"/.test(match)) {
+        cls = /:$/.test(match) ? 'jk' : 'js'; // key or string
+      } else if (/true|false|null/.test(match)) {
+        cls = 'jb';
+      }
+      return `<span class="${cls}">${match}</span>`;
+    }
+  );
+}
