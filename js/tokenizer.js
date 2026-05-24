@@ -7,9 +7,16 @@
 
 // ── TOKENIZER ──────────────────────────────────────────────────────────────
 
-const tiktokenEncoders = new Map(); // cached tiktoken encoders by encoding name
-let tiktokenLoading = false;
-let tiktokenFailed = false;
+// Cache of resolved tiktoken encoder instances, keyed by encoding name.
+// Stores Promises while loading so concurrent callers share the same load.
+// This prevents duplicate WASM instantiation if countTokens is called concurrently
+// for the same encoding before the first load completes.
+const tiktokenEncoders = new Map();
+
+// Per-encoding failure flags. Using a Set (not a single boolean) so that a failure
+// for one encoding (e.g. cl100k_base) does not disable a different encoding
+// (e.g. o200k_base) that may load successfully in the same session.
+const tiktokenFailed = new Set();
 
 /**
  * Count tokens for the given text using the selected model.
@@ -31,22 +38,25 @@ async function countTokens(text, model) {
 }
 
 async function countWithTiktoken(text, encoding) {
-  if (tiktokenFailed) {
-    // Fallback to approximation if tiktoken couldn't load
+  if (tiktokenFailed.has(encoding)) {
+    // This encoding failed previously — fall back to approximation for the session.
     const count = Math.ceil(text.length / 4.0);
     return { count, method: 'approximate' };
   }
 
   try {
     if (!tiktokenEncoders.has(encoding)) {
-      tiktokenEncoders.set(encoding, await loadTiktoken(encoding));
+      // Store the Promise immediately so concurrent calls share this load
+      // rather than each firing their own import() and WASM instantiation.
+      tiktokenEncoders.set(encoding, loadTiktoken(encoding));
     }
-    const encoder = tiktokenEncoders.get(encoding);
+    const encoder = await tiktokenEncoders.get(encoding);
     const tokens = encoder.encode(text);
     return { count: tokens.length, method: 'exact' };
   } catch (err) {
-    console.warn('tiktoken error, falling back to approximation:', err.message);
-    tiktokenFailed = true;
+    console.warn('tiktoken error for encoding "' + encoding + '", falling back to approximation:', err.message);
+    tiktokenFailed.add(encoding);
+    tiktokenEncoders.delete(encoding); // remove the failed Promise from the cache
     const count = Math.ceil(text.length / 4.0);
     return { count, method: 'approximate' };
   }
