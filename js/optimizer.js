@@ -1239,58 +1239,24 @@ async function updateSuggestions(text, model, beforeCount) {
     .map(t => { const r = t.detect(text); return r ? { t, r } : null; })
     .filter(Boolean);
 
-  // ── Pass 1: individual savings (parallel) — used for profitability gating ────
+  // Measure individual savings in parallel — each technique applied alone to the original
+  // text. Used for both profitability gating and the per-card savings badge.
   //
-  // Each technique is measured alone against the original text. This preserves the
-  // original gating intent: json-keys with a tiny payload (where the __key_map envelope
-  // costs more than it saves) is correctly suppressed regardless of pipeline position.
-  // A technique that detects something real on the original text will always have
-  // individual savings ≥ 1, so whitespace / linebreaks / etc. are never hidden.
-  const withIndividualSavings = await Promise.all(
+  // These are informational estimates (marked ~ in the UI): they show what each technique
+  // contributes in isolation. The real combined saving for the current checkbox selection
+  // is computed separately by _refreshSavingsDisplay() and shown next to the Apply button.
+  const actionable = await Promise.all(
     actionableRaw.map(async ({ t, r }) => {
       const applied = t.apply(text);
-      const { count: afterCount } = await countTokens(applied, model);
-      return { t, r, individualSavings: Math.max(0, beforeCount - afterCount) };
+      const { count: afterCount, method } = await countTokens(applied, model);
+      const realSavings = Math.max(0, beforeCount - afterCount);
+      return { t, r: { ...r, savings: realSavings, exact: method === 'exact' } };
     })
   );
 
-  // Gate: suppress techniques whose individual savings don't clear the threshold.
-  const gated = withIndividualSavings.filter(
-    ({ individualSavings }) => individualSavings >= PROFITABILITY_THRESHOLD
-  );
-
-  // ── Pass 2: marginal savings (sequential, pipeline order) — used for display ──
-  //
-  // Each technique is applied on top of all preceding techniques so the displayed
-  // numbers are honest marginal contributions. They sum to the real combined delta
-  // and can never exceed the total token count.
-  const PIPELINE_ORDER = ['filler', 'verbose', 'overqualify', 'hedging', 'repetition',
-                          'schema-arrays', 'json-keys', 'linebreaks', 'whitespace'];
-
-  const gatedById = new Map(gated.map(({ t, r }) => [t.id, { t, r }]));
-  const marginalSavings = new Map(); // id → { savings, exact }
-
-  let cumulativeText  = text;
-  let cumulativeCount = beforeCount;
-
-  for (const id of PIPELINE_ORDER) {
-    if (!gatedById.has(id)) continue;
-    const { t } = gatedById.get(id);
-    const applied = t.apply(cumulativeText);
-    const { count: afterCount, method } = await countTokens(applied, model);
-    marginalSavings.set(id, {
-      savings: Math.max(0, cumulativeCount - afterCount),
-      exact: method === 'exact',
-    });
-    cumulativeText  = applied;
-    cumulativeCount = afterCount;
-  }
-
-  // Build profitable list in TECHNIQUES display order with marginal savings for display.
-  const profitable = gated.map(({ t, r }) => {
-    const ms = marginalSavings.get(t.id) || { savings: 0, exact: false };
-    return { t, r: { ...r, savings: ms.savings, exact: ms.exact } };
-  });
+  // Gate: suppress techniques whose individual savings don't clear the threshold
+  // (e.g. json-keys on a tiny payload where the __key_map envelope costs more than it saves).
+  const profitable = actionable.filter(({ r }) => r.savings >= PROFITABILITY_THRESHOLD);
 
   badge.textContent = profitable.length + (profitable.length === 1 ? ' issue found' : ' issues found');
   panel.classList.remove('hidden');
