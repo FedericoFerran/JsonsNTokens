@@ -14,8 +14,8 @@
 | 5 | ✅ Done | Accuracy — Real token counting |
 | 6 | ✅ Done | Correctness — Metadata cost subtraction |
 | 7 | ✅ Done | UX — Profitability threshold |
-| 8 | ⬜ Next | Structure — Repeated value detection |
-| 9A | ⬜ Pending | Structure — Schema detection |
+| 8 | ✅ Done | Structure — Repeated value detection |
+| 9A | ⬜ Next | Structure — Schema detection |
 | 9B | ⬜ Pending | Structure — Schema transformation |
 | 10 | ⬜ Pending | Extension — Compression profiles |
 
@@ -180,7 +180,7 @@ and applied. This misleads users and may make prompts longer.
 
 ---
 
-# Phase 8 — Structure: Repeated Value Detection ⬜ ← Next
+# Phase 8 — Structure: Repeated Value Detection ✅
 
 **Goal:** Detect and report repeated values inside JSON (not just repeated keys).
 
