@@ -16,8 +16,8 @@
 | 7 | ✅ Done | UX — Profitability threshold |
 | 8 | ✅ Done | Structure — Repeated value detection |
 | 9A | ✅ Done | Structure — Schema detection |
-| 9B | ⬜ Next | Structure — Schema transformation |
-| 10 | ⬜ Pending | Extension — Compression profiles |
+| 9B | ✅ Done | Structure — Schema transformation |
+| 10 | ⬜ Next | Extension — Compression profiles |
 
 ---
 
@@ -216,7 +216,7 @@ The schema is serialized once per object. Detection must come before any transfo
 
 ---
 
-# Phase 9B — Structure: Schema Transformation
+# Phase 9B — Structure: Schema Transformation ✅
 
 **Goal:** Transform detected homogeneous arrays into schema + values format.
 
