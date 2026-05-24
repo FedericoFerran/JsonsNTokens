@@ -876,17 +876,16 @@ async function updateSuggestions(text, model, beforeCount) {
   const profileSel = document.getElementById('profile-select');
   if (profileSel) profileSel.disabled = false;
 
-  // Detect which techniques apply.
-  // infoOnly techniques (e.g. repeated-values) are detection-only: their apply() is a
-  // no-op, so real savings measurement would always return 0. They are handled separately.
-  const detectedRaw = TECHNIQUES
+  // Detect which techniques apply. infoOnly techniques are excluded from the UI
+  // until their corresponding transformation is implemented — showing a finding
+  // the user cannot act on is confusing. The detection code is preserved for
+  // future use; only the rendering is suppressed here.
+  const actionableRaw = TECHNIQUES
+    .filter(t => !t.infoOnly)
     .map(t => { const r = t.detect(text); return r ? { t, r } : null; })
     .filter(Boolean);
 
-  const actionableRaw = detectedRaw.filter(({ t }) => !t.infoOnly);
-  const infoRaw       = detectedRaw.filter(({ t }) =>  t.infoOnly);
-
-  // Measure real token savings for actionable techniques only.
+  // Measure real token savings for each actionable technique.
   const actionable = await Promise.all(
     actionableRaw.map(async ({ t, r }) => {
       const applied = t.apply(text);
@@ -896,19 +895,15 @@ async function updateSuggestions(text, model, beforeCount) {
     })
   );
 
-  // infoOnly techniques keep their estimated savings from detect() — not re-measured.
-  const infoDetected = infoRaw.map(({ t, r }) => ({ t, r: { ...r, exact: false } }));
-
-  // Filter actionable techniques by the profitability threshold.
-  // Zero-savings techniques (e.g. json-keys when envelope cost exceeds key savings)
-  // are suppressed — they would not improve, and may worsen, the token count.
+  // Filter by the profitability threshold — techniques whose savings are offset
+  // by metadata overhead (e.g. json-keys envelope cost) are suppressed.
   const profitable = actionable.filter(({ r }) => r.savings >= PROFITABILITY_THRESHOLD);
 
   badge.textContent = profitable.length + (profitable.length === 1 ? ' issue found' : ' issues found');
   panel.classList.remove('hidden');
 
-  if (actionableRaw.length === 0 && infoDetected.length === 0) {
-    // Nothing detected at all — no actionable patterns, no structural findings.
+  if (actionableRaw.length === 0) {
+    // Nothing actionable detected.
     list.innerHTML = '<p class="subtitle" style="padding:8px 0 4px;">✅ No obvious verbosity detected — prompt looks clean.</p>';
     actionRow.style.display = 'none';
     return;
@@ -945,29 +940,6 @@ async function updateSuggestions(text, model, beforeCount) {
       </div>
     </label>`;
   }).join('');
-
-  // Render infoOnly detections as non-selectable structural notices below the actionable list.
-  // These are shown with an ℹ️ icon in place of a checkbox and no apply action.
-  if (infoDetected.length) {
-    html += infoDetected.map(({ t, r }) => {
-      const savingsLabel = r.savings > 0
-        ? `~${r.savings} token${r.savings !== 1 ? 's' : ''} potential`
-        : 'potential savings';
-      return `
-    <div class="technique-item" style="opacity:0.85;cursor:default;" title="${escapeAttr(t.description)}">
-      <span style="flex-shrink:0;width:18px;text-align:center;line-height:1;">ℹ️</span>
-      <div class="technique-body">
-        <div class="technique-label">
-          ${escapeHtml(r.label)}${r.example ? ' <span class="technique-example">(' + escapeHtml(r.example) + ')</span>' : ''}
-        </div>
-        <div class="technique-meta">
-          <span class="technique-category">${escapeHtml(t.category)}</span>
-          <span class="technique-savings">${escapeHtml(savingsLabel)}</span>
-        </div>
-      </div>
-    </div>`;
-    }).join('');
-  }
 
   list.innerHTML = html;
 
