@@ -17,7 +17,7 @@
 | 8 | ✅ Done | Structure — Repeated value detection |
 | 9A | ✅ Done | Structure — Schema detection |
 | 9B | ✅ Done | Structure — Schema transformation |
-| 10 | ⬜ Next | Extension — Compression profiles |
+| 10 | ✅ Done | Extension — Compression profiles |
 
 ---
 
@@ -244,7 +244,7 @@ After (balanced profile example):
 
 ---
 
-# Phase 10 — Extension: Compression Profiles
+# Phase 10 — Extension: Compression Profiles ✅
 
 **Goal:** Implement the five compression profiles as configurable orchestration layers.
 
