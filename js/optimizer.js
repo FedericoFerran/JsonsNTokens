@@ -407,6 +407,50 @@ const TECHNIQUES = [
       return text;
     },
   },
+  {
+    id: 'schema-arrays',
+    category: 'Structure',
+    name: 'Homogeneous arrays',
+    description: 'Arrays where ≥ 80% of elements share the same key set repeat those key names once per row — extracting the schema once would eliminate the redundancy. Transformation is planned for Phase 9B.',
+    infoOnly: true,  // detection only; apply() is a no-op; bypasses profitability filter
+    detect(text) {
+      const { obj, isJson } = tryParseJson(text);
+      if (!isJson) return null;
+
+      const candidates = findHomogeneousArrays(obj);
+      if (!candidates.length) return null;
+
+      // Sort by savings potential: more rows × more keys = more savings.
+      candidates.sort((a, b) => (b.count * b.keys.length) - (a.count * a.keys.length));
+      const best = candidates[0];
+
+      // Estimate token savings from schema extraction.
+      // Current cost per row: each key is serialized as "key": (key.length + 3 chars).
+      // After extraction: keys appear once in the schema; rows contain only values.
+      // Gross savings = key overhead × (rows − 1).  Subtract schema declaration cost.
+      const CHARS_PER_TOKEN = 4;
+      const keyOverheadPerRow = best.keys.reduce((acc, k) => acc + k.length + 3, 0);
+      const grossSavings = Math.floor(keyOverheadPerRow * (best.count - 1) / CHARS_PER_TOKEN);
+      // Schema wrapper: {"__schema":[...keys...]} — approximate overhead.
+      const schemaCost = Math.ceil((keyOverheadPerRow + 15) / CHARS_PER_TOKEN);
+      const estimatedSavings = Math.max(0, grossSavings - schemaCost);
+
+      const label = candidates.length === 1
+        ? '1 homogeneous array found'
+        : candidates.length + ' homogeneous arrays found';
+
+      // Show path only when the array is not the root value itself.
+      const loc  = best.path === 'root' ? '' : best.path + ': ';
+      const example = loc + best.count + ' objects × ' + best.keys.length + ' keys'
+        + (best.coverage < 100 ? ' (' + best.coverage + '% uniform)' : '');
+
+      return { label, example, savings: estimatedSavings };
+    },
+    apply(text) {
+      // Detection only in Phase 9A — transformation is Phase 9B
+      return text;
+    },
+  },
 ];
 
 // ── Key abbreviation helpers ───────────────────────────────────────────────
@@ -496,6 +540,61 @@ function collectRepeatedValues(value, counts = new Map()) {
   }
   for (const val of Object.values(value)) collectRepeatedValues(val, counts);
   return counts;
+}
+
+/**
+ * Find homogeneous arrays in a parsed JSON value.
+ *
+ * A homogeneous array is one where ≥ 80% of its elements are objects that share
+ * the same sorted key set (schema fingerprint). Arrays with fewer than 3 total
+ * elements or schemas with fewer than 2 keys are not reported — they offer
+ * negligible savings.
+ *
+ * @param {*}      value   - Parsed JSON value to inspect
+ * @param {string} path    - JSON path for display (e.g. "root", "root.items")
+ * @param {Array}  results - Accumulator for discovered arrays
+ * @returns {Array} results — each entry: { path, count, keys, coverage }
+ */
+function findHomogeneousArrays(value, path = 'root', results = []) {
+  if (value === null || typeof value !== 'object') return results;
+
+  if (Array.isArray(value)) {
+    if (value.length >= 3) {
+      // Compute a key-set fingerprint for every object element.
+      const fingerprints = value.map(el =>
+        (el !== null && typeof el === 'object' && !Array.isArray(el))
+          ? Object.keys(el).sort().join('\0')
+          : null
+      );
+
+      // Find the most common fingerprint.
+      const freq = new Map();
+      fingerprints.forEach(fp => {
+        if (fp !== null) freq.set(fp, (freq.get(fp) || 0) + 1);
+      });
+
+      if (freq.size > 0) {
+        const [dominantFp, dominantCount] = [...freq.entries()]
+          .sort((a, b) => b[1] - a[1])[0];
+        const coverage = dominantCount / value.length;
+        const keys = dominantFp.split('\0');
+
+        if (coverage >= 0.8 && keys.length >= 2) {
+          results.push({ path, count: value.length, keys, coverage: Math.round(coverage * 100) });
+        }
+      }
+    }
+
+    // Recurse into elements (nested arrays / objects inside arrays).
+    value.forEach((el, i) => findHomogeneousArrays(el, path + '[' + i + ']', results));
+    return results;
+  }
+
+  // Object: recurse into each property value.
+  for (const [key, val] of Object.entries(value)) {
+    findHomogeneousArrays(val, path === 'root' ? key : path + '.' + key, results);
+  }
+  return results;
 }
 
 /**
