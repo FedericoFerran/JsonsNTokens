@@ -1036,6 +1036,35 @@ function initSuggestions() {
   document.getElementById('clean-btn').addEventListener('click', handleApplyOrUndo);
   document.getElementById('select-all-btn').addEventListener('click', toggleSelectAll);
   initProfileSelector();
+
+  // ── Expand / collapse cards (delegated, registered once) ─────────────────
+  // Handles .technique-toggle (expand/collapse) and .technique-items-more
+  // (show hidden items). Registered once on the persistent list container so
+  // re-renders via list.innerHTML do not accumulate duplicate listeners.
+  document.getElementById('input-tips-list').addEventListener('click', e => {
+    // "Show N more" button inside .technique-items
+    const moreBtn = e.target.closest('.technique-items-more');
+    if (moreBtn) {
+      const container = moreBtn.closest('.technique-items');
+      if (!container) return;
+      container.querySelectorAll('.technique-item-hidden').forEach(el => {
+        el.classList.remove('technique-item-hidden');
+      });
+      moreBtn.remove();
+      return;
+    }
+
+    // Expand / collapse toggle
+    const toggle = e.target.closest('.technique-toggle');
+    if (!toggle) return;
+    const card     = toggle.closest('.technique-card');
+    const expanded = card.querySelector('.technique-expanded');
+    if (!expanded) return;
+    const opening  = expanded.hidden;
+    expanded.hidden = !opening;
+    toggle.setAttribute('aria-expanded', String(opening));
+    toggle.textContent = opening ? '▾' : '▸';
+  });
 }
 
 // Inject the profile <select> once into the suggestions panel at init time.
@@ -1230,34 +1259,6 @@ async function updateSuggestions(text, model, beforeCount) {
   }).join('');
 
   list.innerHTML = html;
-
-  // ── Expand / collapse cards ───────────────────────────────────────────────
-  // Single delegated listener handles the toggle chevron and the "show more"
-  // button. The listener is added to the freshly-rendered `list` element after
-  // each innerHTML reset, so it is always attached to the current DOM.
-  list.addEventListener('click', e => {
-    // "Show N more" button inside .technique-items
-    const moreBtn = e.target.closest('.technique-items-more');
-    if (moreBtn) {
-      const container = moreBtn.closest('.technique-items');
-      container.querySelectorAll('.technique-item-hidden').forEach(el => {
-        el.classList.remove('technique-item-hidden');
-      });
-      moreBtn.remove();
-      return;
-    }
-
-    // Expand / collapse toggle
-    const toggle = e.target.closest('.technique-toggle');
-    if (!toggle) return;
-    const card     = toggle.closest('.technique-card');
-    const expanded = card.querySelector('.technique-expanded');
-    if (!expanded) return;
-    const opening  = expanded.hidden;
-    expanded.hidden = !opening;
-    toggle.setAttribute('aria-expanded', String(opening));
-    toggle.textContent = opening ? '▾' : '▸';
-  });
 
   list.querySelectorAll('.technique-cb').forEach(cb => {
     cb.addEventListener('change', () => {
