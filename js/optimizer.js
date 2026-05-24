@@ -1016,7 +1016,7 @@ function renderTechniqueItems(items) {
 function renderTechniquePreview(t, text) {
   if (!t.preview) return '';
   let result;
-  try { result = t.preview(text); } catch { return ''; }
+  try { result = t.preview(text); } catch (e) { console.warn('[renderTechniquePreview ' + t.id + ']', e); return ''; }
   if (!result) return '';
   const { before, after } = result;
   return `
@@ -1209,20 +1209,22 @@ async function updateSuggestions(text, model, beforeCount) {
 
     return `
     <div class="technique-card">
-      <label class="technique-item">
-        <input type="checkbox" class="technique-cb" data-id="${t.id}" data-savings="${r.savings}" checked>
-        <div class="technique-body">
-          <div class="technique-label">
-            ${escapeHtml(r.label)}${r.example ? ' <span class="technique-example">(' + escapeHtml(r.example) + ')</span>' : ''}
+      <div class="technique-card-row">
+        <label class="technique-item">
+          <input type="checkbox" class="technique-cb" data-id="${t.id}" data-savings="${r.savings}" checked>
+          <div class="technique-body">
+            <div class="technique-label">
+              ${escapeHtml(r.label)}${r.example ? ' <span class="technique-example">(' + escapeHtml(r.example) + ')</span>' : ''}
+            </div>
+            ${t.hint ? '<div class="technique-hint">' + escapeHtml(t.hint) + '</div>' : ''}
+            <div class="technique-meta">
+              <span class="technique-category">${escapeHtml(t.category)}</span>
+              <span class="technique-savings">${escapeHtml(savingsLabel)}</span>
+            </div>
           </div>
-          ${t.hint ? '<div class="technique-hint">' + escapeHtml(t.hint) + '</div>' : ''}
-          <div class="technique-meta">
-            <span class="technique-category">${escapeHtml(t.category)}</span>
-            <span class="technique-savings">${escapeHtml(savingsLabel)}</span>
-          </div>
-        </div>
+        </label>
         ${hasExpanded ? '<button class="technique-toggle" type="button" aria-expanded="false">▸</button>' : ''}
-      </label>
+      </div>
       ${hasExpanded ? `<div class="technique-expanded" hidden>${itemsHtml}${previewHtml}</div>` : ''}
     </div>`;
   }).join('');
