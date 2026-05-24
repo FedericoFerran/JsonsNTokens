@@ -85,24 +85,19 @@ const PROFITABILITY_THRESHOLD = 1;
 // the existing apply pipeline runs unchanged.
 //
 const PROFILES = {
-  prompt_preservation: {
-    label: 'Prompt Preservation',
-    description: 'Whitespace only — preserves prompt clarity and instruction quality',
+  whitespace_only: {
+    label: 'Whitespace Only',
+    description: 'Collapses extra spaces and blank lines — no semantic changes',
     techniques: ['whitespace'],
   },
-  safe_readable: {
-    label: 'Safe & Readable',
-    description: 'Light cleanup — removes filler phrases and normalizes whitespace',
-    techniques: ['filler', 'verbose', 'whitespace'],
+  text_cleanup: {
+    label: 'Text Cleanup',
+    description: 'Removes filler, verbose phrasing, hedging, and duplicate sentences — text only, no JSON transforms',
+    techniques: ['filler', 'verbose', 'overqualify', 'hedging', 'repetition', 'whitespace'],
   },
-  balanced: {
-    label: 'Balanced',
-    description: 'Moderate optimization — aliasing, deduplication, schema extraction',
-    techniques: ['filler', 'verbose', 'overqualify', 'hedging', 'repetition', 'json-keys', 'schema-arrays', 'whitespace'],
-  },
-  maximum_compression: {
-    label: 'Maximum Compression',
-    description: 'All passes enabled — lowest token count, reduced readability',
+  full_optimization: {
+    label: 'Full Optimization',
+    description: 'All passes — JSON key aliasing, schema extraction, and line break removal on top of text cleanup',
     techniques: ['filler', 'verbose', 'overqualify', 'hedging', 'repetition', 'json-keys', 'schema-arrays', 'linebreaks', 'whitespace'],
   },
 };
