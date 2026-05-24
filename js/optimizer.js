@@ -971,33 +971,6 @@ function abbreviateKey(key, usedAbbrs) {
 }
 
 /**
- * Walk a parsed JSON value and return a minimal object containing 1-2 keys
- * from affectedKeys. Used to build a compact before/after preview for json-keys.
- * Returns null if no qualifying object is found.
- */
-function findMiniObjectWithKeys(value, affectedKeys) {
-  if (value === null || typeof value !== 'object') return null;
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const r = findMiniObjectWithKeys(item, affectedKeys);
-      if (r) return r;
-    }
-    return null;
-  }
-  const hitKeys = Object.keys(value).filter(k => affectedKeys.has(k));
-  if (hitKeys.length > 0) {
-    const mini = {};
-    hitKeys.slice(0, 2).forEach(k => { mini[k] = '…'; });
-    return mini;
-  }
-  for (const val of Object.values(value)) {
-    const r = findMiniObjectWithKeys(val, affectedKeys);
-    if (r) return r;
-  }
-  return null;
-}
-
-/**
  * Retrieve a nested value from a parsed JSON object by dot-separated path.
  * 'root' returns the value itself. Paths containing '[' (array indices) return null.
  */
