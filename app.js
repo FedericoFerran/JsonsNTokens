@@ -533,7 +533,12 @@ function updateSuggestions(text) {
 
   if (detected.length === 0) {
     list.innerHTML = '<p class="subtitle" style="padding:8px 0 4px;">✅ No obvious verbosity detected — prompt looks clean.</p>';
-    actionRow.style.display = 'none';
+    // Keep action row visible if undo is available
+    if (previousText !== null) {
+      actionRow.style.display = 'flex';
+    } else {
+      actionRow.style.display = 'none';
+    }
     return;
   }
 
@@ -561,9 +566,13 @@ function updateSuggestions(text) {
   if (previousText === null) {
     cleanBtn.textContent = '';  // will be set by refreshApplyButton
     cleanBtn.disabled = false;
+    refreshApplyButton();
+  } else {
+    // In undo mode — keep the ↩ Undo button, just update savings label
+    cleanBtn.textContent = '↩ Undo';
+    cleanBtn.disabled = false;
+    document.getElementById('clean-savings-text').textContent = '';
   }
-
-  refreshApplyButton();
 }
 
 function handleApplyOrUndo() {
