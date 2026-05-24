@@ -139,10 +139,16 @@ const TECHNIQUES = [
       const found = FILLER_PHRASES.filter(p => text.toLowerCase().includes(p.toLowerCase()));
       if (!found.length) return null;
       const savings = found.reduce((acc, p) => acc + Math.ceil(p.split(' ').length * 0.8), 0);
+      const items = found.map(phrase => {
+        const re = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+        const count = (text.match(re) || []).length;
+        return { label: `"${phrase}" ×${count}`, count };
+      }).sort((a, b) => b.count - a.count);
       return {
         label: found.length + ' filler phrase' + (found.length > 1 ? 's' : '') + ' found',
         example: found[0],
         savings,
+        items,
       };
     },
     apply(text) {
@@ -165,10 +171,16 @@ const TECHNIQUES = [
         const r = pattern.test(text); pattern.lastIndex = 0; return r;
       });
       if (!found.length) return null;
+      const items = found.map(({ pattern, label }) => {
+        const matches = text.match(pattern) || [];
+        pattern.lastIndex = 0;
+        return { label: `${label} ×${matches.length}`, count: matches.length };
+      });
       return {
         label: found.length + ' verbose phrase' + (found.length > 1 ? 's' : '') + ' found',
         example: found[0].label,
         savings: found.length * 2,
+        items,
       };
     },
     apply(text) {
@@ -190,10 +202,16 @@ const TECHNIQUES = [
         const r = pattern.test(text); pattern.lastIndex = 0; return r;
       });
       if (!found.length) return null;
+      const items = found.map(({ pattern, label }) => {
+        const matches = text.match(pattern) || [];
+        pattern.lastIndex = 0;
+        return { label: `${label} ×${matches.length}`, count: matches.length };
+      });
       return {
         label: found.length + ' over-qualification phrase' + (found.length > 1 ? 's' : '') + ' found',
         example: found[0].label,
         savings: found.length * 2,
+        items,
       };
     },
     apply(text) {
@@ -215,10 +233,16 @@ const TECHNIQUES = [
         const r = pattern.test(text); pattern.lastIndex = 0; return r;
       });
       if (!found.length) return null;
+      const items = found.map(({ pattern, label }) => {
+        const matches = text.match(pattern) || [];
+        pattern.lastIndex = 0;
+        return { label: `${label} ×${matches.length}`, count: matches.length };
+      });
       return {
         label: found.length + ' meta-commentary phrase' + (found.length > 1 ? 's' : '') + ' found',
         example: found[0].label,
         savings: found.length * 3,
+        items,
       };
     },
     apply(text) {
@@ -246,10 +270,21 @@ const TECHNIQUES = [
       });
       if (!dupes.length) return null;
       const savings = dupes.reduce((acc, s) => acc + Math.ceil(s.split(/\s+/).length * 0.75), 0);
+      // Group by canonical key: count = total appearances (first + duplicates)
+      const snippetMap = new Map();
+      dupes.forEach(s => {
+        const key = s.trim().toLowerCase().replace(/\s+/g, ' ');
+        snippetMap.set(key, (snippetMap.get(key) || 0) + 1);
+      });
+      const items = [...snippetMap.entries()].map(([key, extraCount]) => ({
+        label: (key.length > 80 ? key.slice(0, 79) + '…' : key) + ' ×' + (extraCount + 1),
+        count: extraCount + 1,
+      })).sort((a, b) => b.count - a.count);
       return {
         label: dupes.length + ' repeated sentence' + (dupes.length > 1 ? 's' : '') + ' found',
         example: null,
         savings,
+        items,
       };
     },
     apply(text) {
@@ -303,10 +338,16 @@ const TECHNIQUES = [
         hasMultiSpaces    && 'consecutive spaces',
         hasTrailingSpaces && 'trailing whitespace',
       ].filter(Boolean);
+      const items = [
+        hasMultiNewlines  && { label: `multiple blank lines ×${(text.match(/\n{3,}/g) || []).length}`,        count: (text.match(/\n{3,}/g) || []).length },
+        hasMultiSpaces    && { label: `consecutive spaces ×${(text.match(/[ \t]{2,}/g) || []).length}`,       count: (text.match(/[ \t]{2,}/g) || []).length },
+        hasTrailingSpaces && { label: `trailing whitespace ×${(text.match(/[ \t]+$/gm) || []).length} lines`, count: (text.match(/[ \t]+$/gm) || []).length },
+      ].filter(Boolean);
       return {
         label: 'Redundant whitespace detected',
         example: issues.join(', '),
         savings: 2,
+        items,
       };
     },
     apply(text) {
@@ -330,6 +371,7 @@ const TECHNIQUES = [
         label: count + ' line break' + (count !== 1 ? 's' : '') + ' found',
         example: null,
         savings: count,
+        items: [{ label: `${count} line breaks → collapsed to spaces`, count }],
       };
     },
     apply(text) {
@@ -373,6 +415,10 @@ const TECHNIQUES = [
         example: candidates[0].key + ' ×' + candidates[0].count,
         savings: netSavings,
         metadataCost: envelopeCost,
+        items: candidates.map(({ key, count }) => ({
+          label: `${key} ×${count} → ${mapping.get(key)}`,
+          count,
+        })),
       };
     },
     apply(text) {
@@ -471,7 +517,15 @@ const TECHNIQUES = [
       const loc     = best.path === 'root' ? '' : best.path + ': ';
       const example = loc + best.count + ' objects × ' + best.keys.length + ' keys';
 
-      return { label, example, savings: estimatedSavings };
+      return {
+        label,
+        example,
+        savings: estimatedSavings,
+        items: candidates.map(c => ({
+          label: (c.path === 'root' ? 'root' : c.path) + ' · ' + c.count + ' rows × ' + c.keys.length + ' keys',
+          count: c.count * c.keys.length,
+        })),
+      };
     },
     apply(text) {
       const { obj, isJson } = tryParseJson(text);
