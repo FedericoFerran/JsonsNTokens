@@ -102,17 +102,46 @@ const PROFILES = {
   },
   maximum_compression: {
     label: 'Maximum Compression',
-    description: 'Aggressive — lowest token count, reduced readability',
+    description: 'Aggressive — all passes enabled, lowest token count, reduced readability',
     techniques: ['filler', 'verbose', 'overqualify', 'hedging', 'repetition', 'json-keys', 'schema-arrays', 'linebreaks', 'whitespace'],
   },
+  // NOTE: ai_to_ai currently enables the same passes as maximum_compression.
+  // It is kept as a distinct profile to serve as the anchor for future divergence:
+  // subtree factoring, numeric precision reduction, and provider-specific passes
+  // belong here, not in maximum_compression. Until those are implemented, both
+  // profiles produce identical output.
   ai_to_ai: {
     label: 'AI-to-AI',
-    description: 'Ultra-aggressive — optimized for agent-to-agent payloads, minimal human readability',
+    description: 'All passes enabled — same as Maximum Compression today; reserved for agent-specific passes (subtree factoring, numeric reduction) in future phases',
     techniques: ['filler', 'verbose', 'overqualify', 'hedging', 'repetition', 'json-keys', 'schema-arrays', 'linebreaks', 'whitespace'],
   },
 };
 
 // ── TECHNIQUES — each is detectable, applicable, and selectable ──
+//
+// TECHNIQUE CONTRACT:
+//
+// detect(text) → result | null
+//   Returns a result object if the technique has something to suggest, null otherwise.
+//   Result shape: { label, example, savings }
+//   The `savings` field in detect() is used ONLY for infoOnly techniques (displayed as
+//   an informational estimate). For all other techniques, savings is measured with the
+//   real tokenizer in updateSuggestions() and the detect() value is discarded. Do not
+//   spend effort on accurate savings estimates in detect() for non-infoOnly techniques.
+//
+// apply(text) → string
+//   Applies the transformation and returns the result. Must never return corrupted output:
+//   JSON techniques must call assertValidJson(); text techniques must be idempotent and safe.
+//   For infoOnly techniques, apply() is never called — return text unchanged with a comment.
+//
+// infoOnly: true (optional)
+//   Marks a technique as detection-only. It is shown in the UI as a non-selectable notice
+//   (ℹ️ icon, no checkbox). It bypasses real savings measurement and profitability gating.
+//   Its apply() is never called.
+//
+// ORDERING NOTE: The order of entries in this array is the UI display order only.
+// The apply pipeline order is defined separately in handleApplyOrUndo — do not assume
+// they match. See the comment there before adding a new technique.
 
 const TECHNIQUES = [
   {
