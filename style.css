@@ -425,6 +425,12 @@ textarea { resize: vertical; line-height: 1.6; overflow: auto; }
   margin-left: 4px;
 }
 
+.technique-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
 .technique-meta {
   display: flex;
   align-items: center;

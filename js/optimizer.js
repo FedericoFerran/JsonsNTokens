@@ -139,6 +139,7 @@ const TECHNIQUES = [
     category: 'Filler',
     name: 'Filler phrases',
     description: 'Common courtesy phrases that add no information to the prompt',
+    hint: 'Will remove these phrases — they carry no meaning for the model',
     detect(text) {
       const found = FILLER_PHRASES.filter(p => text.toLowerCase().includes(p.toLowerCase()));
       if (!found.length) return null;
@@ -163,6 +164,7 @@ const TECHNIQUES = [
     category: 'Verbosity',
     name: 'Verbose phrases',
     description: 'Long-winded expressions with shorter, equivalent alternatives',
+    hint: 'Will replace each with a shorter equivalent — same meaning, fewer tokens',
     detect(text) {
       const found = VERBOSE_PATTERNS.filter(({ pattern }) => {
         const r = pattern.test(text); pattern.lastIndex = 0; return r;
@@ -187,6 +189,7 @@ const TECHNIQUES = [
     category: 'Verbosity',
     name: 'Over-qualification',
     description: 'Hedging words that soften statements without changing their meaning',
+    hint: 'Will remove these words — statements become more direct without losing meaning',
     detect(text) {
       const found = OVERQUALIFY_PATTERNS.filter(({ pattern }) => {
         const r = pattern.test(text); pattern.lastIndex = 0; return r;
@@ -211,6 +214,7 @@ const TECHNIQUES = [
     category: 'Verbosity',
     name: 'Meta-commentary',
     description: 'Phrases that announce what you\'re about to say instead of just saying it',
+    hint: 'Will remove these phrases — the sentence that follows stands on its own',
     detect(text) {
       const found = HEDGING_PATTERNS.filter(({ pattern }) => {
         const r = pattern.test(text); pattern.lastIndex = 0; return r;
@@ -235,6 +239,7 @@ const TECHNIQUES = [
     category: 'Redundancy',
     name: 'Repeated sentences',
     description: 'Sentences that appear more than once — the model only needs to see them once',
+    hint: 'Will remove the duplicate occurrence(s) — the first is kept, later copies deleted',
     detect(text) {
       const sentences = text.match(/[^.!?\n]{25,}[.!?]/g) || [];
       const seen = new Set();
@@ -292,6 +297,7 @@ const TECHNIQUES = [
     category: 'Whitespace',
     name: 'Redundant whitespace',
     description: 'Multiple blank lines, trailing spaces, and consecutive spaces each cost tokens',
+    hint: 'Will collapse consecutive spaces, trim trailing spaces, and reduce runs of 3+ blank lines to one',
     detect(text) {
       const hasMultiNewlines  = /\n{3,}/.test(text);
       const hasMultiSpaces    = /[ \t]{2,}/.test(text);
@@ -321,6 +327,7 @@ const TECHNIQUES = [
     category: 'Structure',
     name: 'Line breaks',
     description: 'Each newline is a token. Collapsing to a single line removes all of them.',
+    hint: 'Will collapse all line breaks into spaces — output becomes one continuous line',
     detect(text) {
       const count = (text.match(/\n/g) || []).length;
       if (count < 5) return null;
@@ -339,6 +346,7 @@ const TECHNIQUES = [
     category: 'Structure',
     name: 'Repeated JSON keys',
     description: 'Keys appearing 3+ times (common in arrays) can be abbreviated. Output is a JSON envelope: __key_map holds the abbreviation dictionary, __data holds the optimized payload.',
+    hint: 'Will shorten each repeated key and prepend a lookup dictionary — output remains valid JSON',
     detect(text) {
       const { obj, isJson } = tryParseJson(text);
       if (!isJson) return null;
@@ -435,6 +443,7 @@ const TECHNIQUES = [
     category: 'Structure',
     name: 'Homogeneous arrays',
     description: 'Arrays where every element shares the same key set repeat those key names once per object — schema extraction stores keys once and serializes only values per row.',
+    hint: 'Will extract the shared key names into a single header — each row then stores only values, not keys',
     detect(text) {
       const { obj, isJson } = tryParseJson(text);
       if (!isJson) return null;
@@ -933,6 +942,7 @@ async function updateSuggestions(text, model, beforeCount) {
         <div class="technique-label">
           ${escapeHtml(r.label)}${r.example ? ' <span class="technique-example">(' + escapeHtml(r.example) + ')</span>' : ''}
         </div>
+        ${t.hint ? '<div class="technique-hint">' + escapeHtml(t.hint) + '</div>' : ''}
         <div class="technique-meta">
           <span class="technique-category">${escapeHtml(t.category)}</span>
           <span class="technique-savings">${escapeHtml(savingsLabel)}</span>
