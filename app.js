@@ -632,6 +632,16 @@ function updateSuggestions(text) {
   const actionRow  = document.getElementById('clean-row');
   const cleanBtn   = document.getElementById('clean-btn');
 
+  // While in undo mode, don't re-render the list — just keep the Undo button visible
+  if (previousText !== null) {
+    panel.classList.remove('hidden');
+    actionRow.style.display = 'flex';
+    cleanBtn.textContent = '↩ Undo';
+    cleanBtn.disabled = false;
+    document.getElementById('clean-savings-text').textContent = '';
+    return;
+  }
+
   const detected = TECHNIQUES
     .map(t => { const r = t.detect(text); return r ? { t, r } : null; })
     .filter(Boolean);
@@ -641,12 +651,7 @@ function updateSuggestions(text) {
 
   if (detected.length === 0) {
     list.innerHTML = '<p class="subtitle" style="padding:8px 0 4px;">✅ No obvious verbosity detected — prompt looks clean.</p>';
-    // Keep action row visible if undo is available
-    if (previousText !== null) {
-      actionRow.style.display = 'flex';
-    } else {
-      actionRow.style.display = 'none';
-    }
+    actionRow.style.display = 'none';
     return;
   }
 
@@ -671,16 +676,9 @@ function updateSuggestions(text) {
 
   actionRow.style.display = 'flex';
 
-  if (previousText === null) {
-    cleanBtn.textContent = '';  // will be set by refreshApplyButton
-    cleanBtn.disabled = false;
-    refreshApplyButton();
-  } else {
-    // In undo mode — keep the ↩ Undo button, just update savings label
-    cleanBtn.textContent = '↩ Undo';
-    cleanBtn.disabled = false;
-    document.getElementById('clean-savings-text').textContent = '';
-  }
+  cleanBtn.textContent = '';  // will be set by refreshApplyButton
+  cleanBtn.disabled = false;
+  refreshApplyButton();
 }
 
 function handleApplyOrUndo() {
@@ -705,9 +703,9 @@ function handleApplyOrUndo() {
 
   previousText = input.value;
 
-  // Apply in logical order (verbosity first, whitespace normalisation last)
+  // Apply in logical order: verbosity → redundancy → structure → whitespace last
   let text = input.value;
-  ['filler', 'verbose', 'overqualify', 'hedging', 'repetition', 'whitespace'].forEach(id => {
+  ['filler', 'verbose', 'overqualify', 'hedging', 'repetition', 'json-keys', 'linebreaks', 'whitespace'].forEach(id => {
     if (checkedIds.has(id)) {
       const tech = TECHNIQUES.find(t => t.id === id);
       if (tech) text = tech.apply(text);
