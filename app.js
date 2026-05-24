@@ -484,7 +484,115 @@ const TECHNIQUES = [
         .trim();
     },
   },
+  {
+    id: 'linebreaks',
+    category: 'Structure',
+    name: 'Line breaks',
+    description: 'Each newline is a token. Collapsing to a single line removes all of them.',
+    detect(text) {
+      const count = (text.match(/\n/g) || []).length;
+      if (count < 5) return null;
+      return {
+        label: count + ' line break' + (count !== 1 ? 's' : '') + ' found',
+        example: null,
+        savings: count,
+      };
+    },
+    apply(text) {
+      return text.replace(/\r?\n/g, ' ').replace(/[ \t]{2,}/g, ' ').trim();
+    },
+  },
+  {
+    id: 'json-keys',
+    category: 'Structure',
+    name: 'Repeated JSON keys',
+    description: 'Keys appearing 3+ times (common in arrays) can be abbreviated. A key map is prepended so the model can decode them.',
+    detect(text) {
+      const candidates = findRepeatableKeys(text);
+      if (!candidates.length) return null;
+      const savings = candidates.reduce((acc, { key, count }) => {
+        return acc + Math.floor((key.length - abbreviateKey(key, new Set()).length) * count / 4);
+      }, 0);
+      return {
+        label: candidates.length + ' repeated key' + (candidates.length > 1 ? 's' : '') + ' found',
+        example: candidates[0].key + ' ×' + candidates[0].count,
+        savings: Math.max(1, savings),
+      };
+    },
+    apply(text) {
+      const candidates = findRepeatableKeys(text);
+      if (!candidates.length) return text;
+
+      // Generate unique abbreviations
+      const usedAbbrs = new Set();
+      // Pre-seed with keys that won't be replaced to avoid collisions
+      const allKeys = [...text.matchAll(/"([^"]+)":/g)].map(m => m[1]);
+      allKeys.forEach(k => { if (!candidates.find(c => c.key === k)) usedAbbrs.add(k); });
+
+      const mapping = [];
+      // Sort longest key first so partial substring replacements don't interfere
+      const sorted = [...candidates].sort((a, b) => b.key.length - a.key.length);
+      sorted.forEach(({ key }) => {
+        const abbr = abbreviateKey(key, usedAbbrs);
+        usedAbbrs.add(abbr);
+        mapping.push({ key, abbr });
+      });
+
+      // Replace all occurrences in text
+      let out = text;
+      mapping.forEach(({ key, abbr }) => {
+        const re = new RegExp('"' + key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"', 'g');
+        out = out.replace(re, '"' + abbr + '"');
+      });
+
+      // Prepend key map legend
+      const legend = '/* key_map: ' + mapping.map(({ key, abbr }) => abbr + '=' + key).join(', ') + ' */\n';
+      return legend + out;
+    },
+  },
 ];
+
+// ── Key abbreviation helpers ───────────────────────────────────────────────
+
+/**
+ * Find snake_case or camelCase JSON keys that appear 3+ times in text.
+ * Returns array of { key, count } sorted by count descending.
+ */
+function findRepeatableKeys(text) {
+  // Match JSON keys: "some_key": or "someKey":
+  const re = /"([a-z][a-zA-Z0-9]*(?:[_][a-z][a-zA-Z0-9]*|[A-Z][a-z0-9]*)(?:[_a-zA-Z0-9]*))":/g;
+  const counts = {};
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const key = m[1];
+    // Only care about multi-segment keys (has _ or camelCase transition)
+    if (!/_/.test(key) && !/[A-Z]/.test(key)) continue;
+    counts[key] = (counts[key] || 0) + 1;
+  }
+  return Object.entries(counts)
+    .filter(([_, c]) => c >= 3)
+    .map(([key, count]) => ({ key, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+/**
+ * Generate a short unique abbreviation for a key.
+ * Tries 2 chars per segment, then 3 if there's a collision.
+ */
+function abbreviateKey(key, usedAbbrs) {
+  const segments = key.split('_').length > 1
+    ? key.split('_')
+    : key.replace(/([A-Z])/g, '_$1').toLowerCase().split('_').filter(Boolean);
+
+  for (let len = 2; len <= 6; len++) {
+    const candidate = segments.map(s => s.slice(0, len)).join('_');
+    if (!usedAbbrs.has(candidate)) return candidate;
+  }
+  // Fallback: append index (should rarely happen)
+  let i = 1;
+  while (usedAbbrs.has(key.slice(0, 4) + i)) i++;
+  return key.slice(0, 4) + i;
+}
 
 let previousText = null;  // one-level undo
 
