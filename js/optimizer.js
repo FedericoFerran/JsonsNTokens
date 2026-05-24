@@ -159,6 +159,23 @@ const TECHNIQUES = [
       });
       return out;
     },
+    preview(text) {
+      const phrase = FILLER_PHRASES.find(p => text.toLowerCase().includes(p.toLowerCase()));
+      if (!phrase) return null;
+      const re = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const m = re.exec(text);
+      if (!m) return null;
+      const ctxStart = Math.max(0, m.index - 40);
+      const ctxEnd   = Math.min(text.length, m.index + phrase.length + 40);
+      const slice = text.slice(ctxStart, ctxEnd);
+      const after = slice
+        .replace(new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '')
+        .replace(/\s{2,}/g, ' ').trim();
+      return {
+        before: (ctxStart > 0 ? '…' : '') + slice    + (ctxEnd < text.length ? '…' : ''),
+        after:  (ctxStart > 0 ? '…' : '') + after     + (ctxEnd < text.length ? '…' : ''),
+      };
+    },
   },
   {
     id: 'verbose',
@@ -189,6 +206,25 @@ const TECHNIQUES = [
         out = out.replace(pattern, replacement); pattern.lastIndex = 0;
       });
       return out;
+    },
+    preview(text) {
+      const match = VERBOSE_PATTERNS.find(({ pattern }) => {
+        const r = pattern.test(text); pattern.lastIndex = 0; return r;
+      });
+      if (!match) return null;
+      const { pattern, replacement } = match;
+      const m = pattern.exec(text);
+      pattern.lastIndex = 0;
+      if (!m) return null;
+      const ctxStart = Math.max(0, m.index - 40);
+      const ctxEnd   = Math.min(text.length, m.index + m[0].length + 40);
+      const slice = text.slice(ctxStart, ctxEnd);
+      const after = slice.replace(pattern, replacement);
+      pattern.lastIndex = 0;
+      return {
+        before: (ctxStart > 0 ? '…' : '') + slice + (ctxEnd < text.length ? '…' : ''),
+        after:  (ctxStart > 0 ? '…' : '') + after + (ctxEnd < text.length ? '…' : ''),
+      };
     },
   },
   {
@@ -221,6 +257,25 @@ const TECHNIQUES = [
       });
       return out.replace(/[ \t]{2,}/g, ' ').replace(/[ \t]+$/gm, '');
     },
+    preview(text) {
+      const match = OVERQUALIFY_PATTERNS.find(({ pattern }) => {
+        const r = pattern.test(text); pattern.lastIndex = 0; return r;
+      });
+      if (!match) return null;
+      const { pattern } = match;
+      const m = pattern.exec(text);
+      pattern.lastIndex = 0;
+      if (!m) return null;
+      const ctxStart = Math.max(0, m.index - 40);
+      const ctxEnd   = Math.min(text.length, m.index + m[0].length + 40);
+      const slice = text.slice(ctxStart, ctxEnd);
+      const after = slice.replace(pattern, ' ').replace(/\s{2,}/g, ' ').trim();
+      pattern.lastIndex = 0;
+      return {
+        before: (ctxStart > 0 ? '…' : '') + slice + (ctxEnd < text.length ? '…' : ''),
+        after:  (ctxStart > 0 ? '…' : '') + after + (ctxEnd < text.length ? '…' : ''),
+      };
+    },
   },
   {
     id: 'hedging',
@@ -251,6 +306,25 @@ const TECHNIQUES = [
         out = out.replace(pattern, ''); pattern.lastIndex = 0;
       });
       return out.replace(/[ \t]{2,}/g, ' ').replace(/[ \t]+$/gm, '');
+    },
+    preview(text) {
+      const match = HEDGING_PATTERNS.find(({ pattern }) => {
+        const r = pattern.test(text); pattern.lastIndex = 0; return r;
+      });
+      if (!match) return null;
+      const { pattern } = match;
+      const m = pattern.exec(text);
+      pattern.lastIndex = 0;
+      if (!m) return null;
+      const ctxStart = Math.max(0, m.index - 40);
+      const ctxEnd   = Math.min(text.length, m.index + m[0].length + 40);
+      const slice = text.slice(ctxStart, ctxEnd);
+      const after = slice.replace(pattern, '').replace(/\s{2,}/g, ' ').trim();
+      pattern.lastIndex = 0;
+      return {
+        before: (ctxStart > 0 ? '…' : '') + slice + (ctxEnd < text.length ? '…' : ''),
+        after:  (ctxStart > 0 ? '…' : '') + after + (ctxEnd < text.length ? '…' : ''),
+      };
     },
   },
   {
@@ -321,6 +395,30 @@ const TECHNIQUES = [
 
       return out.replace(/\n{3,}/g, '\n\n').trim();
     },
+    preview(text) {
+      // Find the first sentence that appears more than once
+      const sentences = text.match(/[^.!?\n]{25,}[.!?]/g) || [];
+      const seen = new Set();
+      let dupe = null;
+      for (const s of sentences) {
+        const key = s.trim().toLowerCase().replace(/\s+/g, ' ');
+        if (seen.has(key)) { dupe = s.trim(); break; }
+        seen.add(key);
+      }
+      if (!dupe) return null;
+      // Find the second occurrence (the one that will be removed)
+      const firstIdx  = text.indexOf(dupe);
+      const secondIdx = firstIdx !== -1 ? text.indexOf(dupe, firstIdx + 1) : -1;
+      if (secondIdx === -1) return null;
+      const ctxStart = Math.max(0, secondIdx - 15);
+      const ctxEnd   = Math.min(text.length, secondIdx + dupe.length + 15);
+      const slice    = text.slice(ctxStart, ctxEnd);
+      const after    = slice.replace(dupe, '[removed]').replace(/\s{2,}/g, ' ').trim();
+      return {
+        before: (ctxStart > 0 ? '…' : '') + slice + (ctxEnd < text.length ? '…' : ''),
+        after:  (ctxStart > 0 ? '…' : '') + after + (ctxEnd < text.length ? '…' : ''),
+      };
+    },
   },
   {
     id: 'whitespace',
@@ -357,6 +455,19 @@ const TECHNIQUES = [
         .replace(/[ \t]+$/gm, '')
         .trim();
     },
+    preview(text) {
+      const m = /[ \t]{2,}|[ \t]+$|\n{3,}/.exec(text);
+      if (!m) return null;
+      const ctxStart = Math.max(0, m.index - 10);
+      const ctxEnd   = Math.min(text.length, m.index + m[0].length + 10);
+      const slice    = text.slice(ctxStart, ctxEnd);
+      const visualize = s => s.replace(/ /g, '·').replace(/\t/g, '→').replace(/\n/g, '↵\n');
+      const afterSlice = slice
+        .replace(/[ \t]{2,}/g, ' ')
+        .replace(/[ \t]+$/gm, '')
+        .replace(/\n{3,}/g, '\n\n');
+      return { before: visualize(slice), after: visualize(afterSlice) };
+    },
   },
   {
     id: 'linebreaks',
@@ -376,6 +487,16 @@ const TECHNIQUES = [
     },
     apply(text) {
       return text.replace(/\r?\n/g, ' ').replace(/[ \t]{2,}/g, ' ').trim();
+    },
+    preview(text) {
+      const idx = text.indexOf('\n');
+      if (idx === -1) return null;
+      const ctxStart = Math.max(0, idx - 30);
+      const ctxEnd   = Math.min(text.length, idx + 31);
+      const slice    = text.slice(ctxStart, ctxEnd);
+      const visualize = s => s.replace(/ /g, '·').replace(/\n/g, '↵\n');
+      const afterSlice = slice.replace(/\r?\n/g, ' ').replace(/[ \t]{2,}/g, ' ');
+      return { before: visualize(slice), after: visualize(afterSlice) };
     },
   },
   {
