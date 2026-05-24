@@ -326,29 +326,15 @@ const TECHNIQUES = [
       const candidates = findRepeatableKeysInObj(obj);
       if (!candidates.length) return null;
 
-      // Build abbreviation mapping with proper collision tracking — mirrors apply()
-      // so that gross savings reflects actual abbreviation lengths, not optimistic estimates.
-      const allKeys = collectJsonKeys(obj);
-      const candidateSet = new Set(candidates.map(c => c.key));
-      const usedAbbrs = new Set();
-      for (const key of allKeys.keys()) {
-        if (!candidateSet.has(key)) usedAbbrs.add(key);
-      }
-      const sorted = [...candidates].sort((a, b) => b.key.length - a.key.length);
-      const abbrs = new Map();
-      const keyMapObj = {};
-      sorted.forEach(({ key }) => {
-        const abbr = abbreviateKey(key, usedAbbrs);
-        usedAbbrs.add(abbr);
-        abbrs.set(key, abbr);
-        keyMapObj[abbr] = key;
-      });
+      // buildKeyMapping produces the same mapping that apply() will use,
+      // so the savings estimate uses the actual abbreviation lengths.
+      const { mapping, keyMapObj } = buildKeyMapping(obj, candidates);
 
       // Gross savings: character delta per key × occurrences → approximate tokens.
       // Uses 4 chars/token as a model-agnostic approximation (detect is synchronous).
       const CHARS_PER_TOKEN = 4;
       const grossSavings = candidates.reduce((acc, { key, count }) => {
-        const abbr = abbrs.get(key);
+        const abbr = mapping.get(key);
         return acc + Math.floor((key.length - abbr.length) * count / CHARS_PER_TOKEN);
       }, 0);
 
@@ -364,7 +350,7 @@ const TECHNIQUES = [
         label: candidates.length + ' repeated key' + (candidates.length > 1 ? 's' : '') + ' found',
         example: candidates[0].key + ' ×' + candidates[0].count,
         savings: netSavings,
-        metadataCost: envelopeCost,  // exposed for Phase 7 profitability gating
+        metadataCost: envelopeCost,
       };
     },
     apply(text) {
@@ -374,23 +360,7 @@ const TECHNIQUES = [
       const candidates = findRepeatableKeysInObj(obj);
       if (!candidates.length) return text;
 
-      // Pre-seed usedAbbrs with all keys that will NOT be renamed, to prevent collisions
-      const allKeys = collectJsonKeys(obj);
-      const candidateSet = new Set(candidates.map(c => c.key));
-      const usedAbbrs = new Set();
-      for (const key of allKeys.keys()) {
-        if (!candidateSet.has(key)) usedAbbrs.add(key);
-      }
-
-      // Build key → abbreviation mapping
-      // Sort longest key first to ensure deterministic collision avoidance
-      const sorted = [...candidates].sort((a, b) => b.key.length - a.key.length);
-      const mapping = new Map();
-      sorted.forEach(({ key }) => {
-        const abbr = abbreviateKey(key, usedAbbrs);
-        usedAbbrs.add(abbr);
-        mapping.set(key, abbr);
-      });
+      const { mapping, keyMapObj } = buildKeyMapping(obj, candidates);
 
       // Structurally rename keys — never touches values
       const renamed = renameJsonKeys(obj, mapping);
@@ -398,8 +368,6 @@ const TECHNIQUES = [
       // Wrap in a JSON-legal envelope so the entire output is valid JSON.
       // __key_map: { abbr → original } — machine-readable and reversible
       // __data:    the optimized payload (object or array)
-      const keyMapObj = {};
-      for (const [key, abbr] of mapping.entries()) keyMapObj[abbr] = key;
       const envelope = { __key_map: keyMapObj, __data: renamed };
       return assertValidJson(JSON.stringify(envelope), text, 'json-keys');
     },
@@ -454,23 +422,24 @@ const TECHNIQUES = [
 
       // Only report arrays that apply() will actually transform: 100% uniform coverage.
       // Arrays with 80–99% coverage (outlier rows) are not yet handled.
-      const candidates = findHomogeneousArrays(obj).filter(c => c.coverage === 100);
+      const candidates = findHomogeneousArrays(obj, 'root', [], 100);
       if (!candidates.length) return null;
 
       // Sort by savings potential: more rows × more keys = more savings.
       candidates.sort((a, b) => (b.count * b.keys.length) - (a.count * a.keys.length));
       const best = candidates[0];
 
-      // Estimate token savings from schema extraction.
+      // Estimate token savings across ALL qualifying arrays (not just the best).
       // Current cost per row: each key is serialized as "key": (key.length + 3 chars).
       // After extraction: keys appear once in __schema; __rows contain only values.
-      // Gross savings = key overhead × (rows − 1).  Subtract __schema declaration cost.
+      // Per array: gross savings = key overhead × (rows − 1), minus __schema cost.
       const CHARS_PER_TOKEN = 4;
-      const keyOverheadPerRow = best.keys.reduce((acc, k) => acc + k.length + 3, 0);
-      const grossSavings = Math.floor(keyOverheadPerRow * (best.count - 1) / CHARS_PER_TOKEN);
-      // {"__schema":[...keys...]} overhead — approximate.
-      const schemaCost = Math.ceil((keyOverheadPerRow + 15) / CHARS_PER_TOKEN);
-      const estimatedSavings = Math.max(0, grossSavings - schemaCost);
+      const estimatedSavings = candidates.reduce((total, c) => {
+        const keyOverhead = c.keys.reduce((acc, k) => acc + k.length + 3, 0);
+        const gross = Math.floor(keyOverhead * (c.count - 1) / CHARS_PER_TOKEN);
+        const schemaCost = Math.ceil((keyOverhead + 15) / CHARS_PER_TOKEN);
+        return total + Math.max(0, gross - schemaCost);
+      }, 0);
 
       const label = candidates.length === 1
         ? '1 homogeneous array found'
@@ -561,6 +530,47 @@ function findRepeatableKeysInObj(obj) {
 }
 
 /**
+ * Build the key → abbreviation mapping for a parsed JSON object.
+ *
+ * Shared by json-keys detect() and apply() to guarantee they use exactly the same
+ * mapping. Divergence between detect and apply would mean savings estimates are wrong.
+ *
+ * Algorithm:
+ * 1. Pre-seed usedAbbrs with all non-candidate keys, to prevent collisions.
+ * 2. Sort candidates longest-first for deterministic collision avoidance.
+ * 3. Abbreviate each candidate key, add the abbreviation to usedAbbrs.
+ *
+ * @param {*}     obj        - Parsed JSON value (as returned by JSON.parse)
+ * @param {Array} candidates - Array of { key, count } from findRepeatableKeysInObj
+ * @returns {{ mapping: Map<string,string>, keyMapObj: Object }}
+ *   mapping:   key → abbreviation (used by renameJsonKeys)
+ *   keyMapObj: { abbreviation → original key } (used in the __key_map envelope)
+ */
+function buildKeyMapping(obj, candidates) {
+  const allKeys = collectJsonKeys(obj);
+  const candidateSet = new Set(candidates.map(c => c.key));
+
+  // Pre-seed with non-candidate keys so abbreviations don't collide with existing keys.
+  const usedAbbrs = new Set();
+  for (const key of allKeys.keys()) {
+    if (!candidateSet.has(key)) usedAbbrs.add(key);
+  }
+
+  // Sort longest first — ensures the longest keys get first pick of short abbreviations.
+  const sorted = [...candidates].sort((a, b) => b.key.length - a.key.length);
+  const mapping = new Map();
+  const keyMapObj = {};
+  sorted.forEach(({ key }) => {
+    const abbr = abbreviateKey(key, usedAbbrs);
+    usedAbbrs.add(abbr);
+    mapping.set(key, abbr);
+    keyMapObj[abbr] = key;
+  });
+
+  return { mapping, keyMapObj };
+}
+
+/**
  * Recursively collect all string values from a parsed JSON value.
  * Returns a Map of string_value → occurrence count.
  * Only tracks strings of length >= 3 — short strings are not candidates for aliasing.
@@ -582,17 +592,20 @@ function collectRepeatedValues(value, counts = new Map()) {
 /**
  * Find homogeneous arrays in a parsed JSON value.
  *
- * A homogeneous array is one where ≥ 80% of its elements are objects that share
- * the same sorted key set (schema fingerprint). Arrays with fewer than 3 total
- * elements or schemas with fewer than 2 keys are not reported — they offer
- * negligible savings.
+ * A homogeneous array is one where at least `minCoverage` fraction of its elements
+ * are objects sharing the same sorted key set (schema fingerprint). Arrays with
+ * fewer than 3 total elements or schemas with fewer than 2 keys are not reported.
  *
- * @param {*}      value   - Parsed JSON value to inspect
- * @param {string} path    - JSON path for display (e.g. "root", "root.items")
- * @param {Array}  results - Accumulator for discovered arrays
+ * @param {*}      value       - Parsed JSON value to inspect
+ * @param {string} path        - JSON path for display (e.g. "root", "root.items")
+ * @param {Array}  results     - Accumulator for discovered arrays
+ * @param {number} minCoverage - Minimum fraction [0–1] of elements that must share
+ *                               the dominant key set. Pass 1 for fully uniform arrays
+ *                               only (required by applySchemaExtraction). Default 0.8
+ *                               is preserved for future partial-array support.
  * @returns {Array} results — each entry: { path, count, keys, coverage }
  */
-function findHomogeneousArrays(value, path = 'root', results = []) {
+function findHomogeneousArrays(value, path = 'root', results = [], minCoverage = 0.8) {
   if (value === null || typeof value !== 'object') return results;
 
   if (Array.isArray(value)) {
@@ -616,20 +629,20 @@ function findHomogeneousArrays(value, path = 'root', results = []) {
         const coverage = dominantCount / value.length;
         const keys = dominantFp.split('\0');
 
-        if (coverage >= 0.8 && keys.length >= 2) {
+        if (coverage >= minCoverage && keys.length >= 2) {
           results.push({ path, count: value.length, keys, coverage: Math.round(coverage * 100) });
         }
       }
     }
 
     // Recurse into elements (nested arrays / objects inside arrays).
-    value.forEach((el, i) => findHomogeneousArrays(el, path + '[' + i + ']', results));
+    value.forEach((el, i) => findHomogeneousArrays(el, path + '[' + i + ']', results, minCoverage));
     return results;
   }
 
   // Object: recurse into each property value.
   for (const [key, val] of Object.entries(value)) {
-    findHomogeneousArrays(val, path === 'root' ? key : path + '.' + key, results);
+    findHomogeneousArrays(val, path === 'root' ? key : path + '.' + key, results, minCoverage);
   }
   return results;
 }
