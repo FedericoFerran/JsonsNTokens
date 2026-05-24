@@ -800,6 +800,9 @@ function toggleSelectAll() {
   const checkboxes = [...document.querySelectorAll('.technique-cb')];
   const allChecked = checkboxes.every(cb => cb.checked);
   checkboxes.forEach(cb => { cb.checked = !allChecked; });
+  // Property assignment doesn't fire change events, so reset the profile selector manually.
+  const profileSel = document.getElementById('profile-select');
+  if (profileSel) profileSel.value = '';
   refreshApplyButton();
 }
 
@@ -808,11 +811,8 @@ function refreshApplyButton() {
   if (btn.textContent.startsWith('↩')) return;  // undo mode — don't overwrite
 
   const checked = [...document.querySelectorAll('.technique-cb:checked')];
-  const total = checked.reduce((acc, cb) => {
-    // Match both exact "↓ N tokens" and approximate "↓ ~N tokens" formats
-    const match = cb.closest('label').querySelector('.technique-savings').textContent.match(/(\d+)\s*token/);
-    return acc + (match ? parseInt(match[1]) : 0);
-  }, 0);
+  // Read savings from data-savings attribute set at render time — not from scraped text.
+  const total = checked.reduce((acc, cb) => acc + (parseInt(cb.dataset.savings) || 0), 0);
 
   // Total is always shown with ~ because the combined effect of multiple techniques
   // is not simply additive — interactions between passes mean the real saving may differ.
@@ -830,13 +830,22 @@ async function updateSuggestions(text, model, beforeCount) {
   const actionRow  = document.getElementById('clean-row');
   const cleanBtn   = document.getElementById('clean-btn');
 
-  // While in undo mode, don't re-render the list — just keep the Undo button visible
+  // While in undo mode, don't re-render the list — just keep the Undo button visible.
+  // Disable the profile selector: changing profiles while in undo mode would toggle
+  // checkboxes without any effect, then leave the dropdown in an inconsistent state
+  // once Undo restores the text and re-renders the suggestions.
   if (previousText !== null) {
     panel.classList.remove('hidden');
     actionRow.style.display = 'flex';
     document.getElementById('clean-savings-text').textContent = '';
+    const profileSelUndo = document.getElementById('profile-select');
+    if (profileSelUndo) profileSelUndo.disabled = true;
     return;
   }
+
+  // Normal render path — ensure profile selector is enabled.
+  const profileSel = document.getElementById('profile-select');
+  if (profileSel) profileSel.disabled = false;
 
   // Detect which techniques apply.
   // infoOnly techniques (e.g. repeated-values) are detection-only: their apply() is a
@@ -895,7 +904,7 @@ async function updateSuggestions(text, model, beforeCount) {
       : (r.exact ? `↓ ${r.savings} token${r.savings !== 1 ? 's' : ''}` : `↓ ~${r.savings} token${r.savings !== 1 ? 's' : ''}`);
     return `
     <label class="technique-item">
-      <input type="checkbox" class="technique-cb" data-id="${t.id}" checked>
+      <input type="checkbox" class="technique-cb" data-id="${t.id}" data-savings="${r.savings}" checked>
       <div class="technique-body">
         <div class="technique-label">
           ${escapeHtml(r.label)}${r.example ? ' <span class="technique-example">(' + escapeHtml(r.example) + ')</span>' : ''}
