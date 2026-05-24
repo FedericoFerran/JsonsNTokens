@@ -1239,15 +1239,42 @@ async function updateSuggestions(text, model, beforeCount) {
     .map(t => { const r = t.detect(text); return r ? { t, r } : null; })
     .filter(Boolean);
 
-  // Measure real token savings for each actionable technique.
-  const actionable = await Promise.all(
-    actionableRaw.map(async ({ t, r }) => {
-      const applied = t.apply(text);
-      const { count: afterCount, method } = await countTokens(applied, model);
-      const realSavings = Math.max(0, beforeCount - afterCount);
-      return { t, r: { ...r, savings: realSavings, exact: method === 'exact' } };
-    })
-  );
+  // Measure MARGINAL token savings for each actionable technique.
+  //
+  // Techniques are applied in pipeline order (same order as handleApplyOrUndo).
+  // Each technique is measured on the cumulative output of all preceding techniques,
+  // so savings are honest marginal contributions that sum to the real combined delta.
+  // This prevents individual savings from exceeding the total token count.
+  //
+  // Techniques are displayed in TECHNIQUES array order (UI order); only the savings
+  // values are derived from the pipeline-order measurement.
+  const PIPELINE_ORDER = ['filler', 'verbose', 'overqualify', 'hedging', 'repetition',
+                          'schema-arrays', 'json-keys', 'linebreaks', 'whitespace'];
+
+  const actionableById = new Map(actionableRaw.map(({ t, r }) => [t.id, { t, r }]));
+  const marginalSavings = new Map(); // id → { savings, exact }
+
+  let cumulativeText  = text;
+  let cumulativeCount = beforeCount;
+
+  for (const id of PIPELINE_ORDER) {
+    if (!actionableById.has(id)) continue;
+    const { t } = actionableById.get(id);
+    const applied = t.apply(cumulativeText);
+    const { count: afterCount, method } = await countTokens(applied, model);
+    marginalSavings.set(id, {
+      savings: Math.max(0, cumulativeCount - afterCount),
+      exact: method === 'exact',
+    });
+    cumulativeText  = applied;
+    cumulativeCount = afterCount;
+  }
+
+  // Preserve TECHNIQUES display order; assign marginal savings to each entry.
+  const actionable = actionableRaw.map(({ t, r }) => {
+    const ms = marginalSavings.get(t.id) || { savings: 0, exact: false };
+    return { t, r: { ...r, savings: ms.savings, exact: ms.exact } };
+  });
 
   // Filter by the profitability threshold — techniques whose savings are offset
   // by metadata overhead (e.g. json-keys envelope cost) are suppressed.
