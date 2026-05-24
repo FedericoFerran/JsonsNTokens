@@ -385,6 +385,9 @@ textarea { resize: vertical; line-height: 1.6; overflow: auto; }
 .suggestions-section { padding: 14px 16px; }
 .suggestions-section + .suggestions-section { border-top: 1px solid var(--border); }
 
+/* Profile selector — compact variant of the global select style */
+.profile-select { font-size: 13px; padding: 4px 32px 4px 8px; }
+
 .clean-savings { font-size: 12px; color: var(--text-muted); }
 
 /* ===== TECHNIQUE ITEMS (Input Analysis checkboxes) ===== */

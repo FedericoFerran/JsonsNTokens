@@ -451,7 +451,7 @@ const TECHNIQUES = [
 
       // Only report arrays that apply() will actually transform: 100% uniform coverage.
       // Arrays with 80–99% coverage (outlier rows) are not yet handled.
-      const candidates = findHomogeneousArrays(obj, 'root', [], 100);
+      const candidates = findHomogeneousArrays(obj, 'root', [], 1);
       if (!candidates.length) return null;
 
       // Sort by savings potential: more rows × more keys = more savings.
@@ -791,16 +791,13 @@ function initProfileSelector() {
 
   const sel = document.createElement('select');
   sel.id = 'profile-select';
-  sel.style.cssText = [
-    'font-size:13px',
-    'padding:3px 8px',
-    'border-radius:6px',
-    'border:1px solid var(--border)',
-    'background:var(--bg-input)',
-    'color:var(--text)',
-    'cursor:pointer',
-    'flex:1',
-  ].join(';');
+  sel.className = 'profile-select';
+  // Only override layout/size here. Background, color, border, etc. come from the
+  // global `select` CSS rule — the same rule that styles #model-select correctly in
+  // both light and dark mode. Defining background/color as inline styles would
+  // override that rule and make option text invisible in the native popup (the browser
+  // renders the popup with a light background, so white text becomes invisible in dark mode).
+  sel.style.flex = '1';
 
   // "Custom" sentinel — selected whenever the user overrides checkboxes manually.
   const customOpt = document.createElement('option');
