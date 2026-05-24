@@ -684,9 +684,9 @@ const TECHNIQUES = [
       const arr = getValueAtPath(obj, best.path);
       if (!Array.isArray(arr)) return null;
 
-      const slice = arr.slice(0, 2);
-      const moreNote = arr.length > 2 ? `\n// … ${arr.length - 2} more rows` : '';
-      const before = JSON.stringify(slice, null, 2) + moreNote;
+      const slice = arr.slice(0, 3);
+      const extraRows = arr.length > 3 ? arr.length - 3 : 0;
+      const before = JSON.stringify(slice, null, 2) + (extraRows > 0 ? `\n… and ${extraRows} more row${extraRows !== 1 ? 's' : ''}` : '');
       const transformed = applySchemaExtraction(slice);
       const after = JSON.stringify(transformed, null, 2);
       return { before, after };
