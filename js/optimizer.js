@@ -369,6 +369,44 @@ const TECHNIQUES = [
       return assertValidJson(JSON.stringify(envelope), text, 'json-keys');
     },
   },
+  {
+    id: 'repeated-values',
+    category: 'Structure',
+    name: 'Repeated values',
+    description: 'String values appearing 3+ times are candidates for aliasing — value replacement is planned for a future phase.',
+    infoOnly: true,  // detection only; apply() is a no-op; bypasses profitability filter
+    detect(text) {
+      const { obj, isJson } = tryParseJson(text);
+      if (!isJson) return null;
+
+      const counts = collectRepeatedValues(obj);
+      const candidates = [...counts.entries()]
+        .filter(([, c]) => c >= 3)
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => b.count - a.count || b.value.length - a.value.length);
+
+      if (!candidates.length) return null;
+
+      // Estimate token savings if each candidate were aliased to a 1-char value.
+      // Informational only — Phase 8 detects; transformation is Phase 9B+.
+      // Serialized string: value.length + 2 (quotes). Alias: '"x"' = 3 chars.
+      const CHARS_PER_TOKEN = 4;
+      const estimatedSavings = candidates.reduce((acc, { value, count }) => {
+        const serialized = value.length + 2;
+        return acc + Math.max(0, Math.floor((serialized - 3) * (count - 1) / CHARS_PER_TOKEN));
+      }, 0);
+
+      return {
+        label: candidates.length + ' repeated value' + (candidates.length !== 1 ? 's' : '') + ' found',
+        example: '"' + candidates[0].value + '" ×' + candidates[0].count,
+        savings: estimatedSavings,
+      };
+    },
+    apply(text) {
+      // Detection only in Phase 8 — transformation is Phase 9B+
+      return text;
+    },
+  },
 ];
 
 // ── Key abbreviation helpers ───────────────────────────────────────────────
@@ -439,6 +477,25 @@ function findRepeatableKeysInObj(obj) {
     .filter(([, c]) => c >= 3)
     .map(([key, count]) => ({ key, count }))
     .sort((a, b) => b.count - a.count);
+}
+
+/**
+ * Recursively collect all string values from a parsed JSON value.
+ * Returns a Map of string_value → occurrence count.
+ * Only tracks strings of length >= 3 — short strings are not candidates for aliasing.
+ */
+function collectRepeatedValues(value, counts = new Map()) {
+  if (typeof value === 'string') {
+    if (value.length >= 3) counts.set(value, (counts.get(value) || 0) + 1);
+    return counts;
+  }
+  if (value === null || typeof value !== 'object') return counts;
+  if (Array.isArray(value)) {
+    for (const item of value) collectRepeatedValues(item, counts);
+    return counts;
+  }
+  for (const val of Object.values(value)) collectRepeatedValues(val, counts);
+  return counts;
 }
 
 /**
@@ -527,14 +584,19 @@ async function updateSuggestions(text, model, beforeCount) {
     return;
   }
 
-  // Detect which techniques apply, then measure real token savings for each
-  // by applying the technique to a copy and counting the result.
+  // Detect which techniques apply.
+  // infoOnly techniques (e.g. repeated-values) are detection-only: their apply() is a
+  // no-op, so real savings measurement would always return 0. They are handled separately.
   const detectedRaw = TECHNIQUES
     .map(t => { const r = t.detect(text); return r ? { t, r } : null; })
     .filter(Boolean);
 
-  const detected = await Promise.all(
-    detectedRaw.map(async ({ t, r }) => {
+  const actionableRaw = detectedRaw.filter(({ t }) => !t.infoOnly);
+  const infoRaw       = detectedRaw.filter(({ t }) =>  t.infoOnly);
+
+  // Measure real token savings for actionable techniques only.
+  const actionable = await Promise.all(
+    actionableRaw.map(async ({ t, r }) => {
       const applied = t.apply(text);
       const { count: afterCount, method } = await countTokens(applied, model);
       const realSavings = Math.max(0, beforeCount - afterCount);
@@ -542,29 +604,36 @@ async function updateSuggestions(text, model, beforeCount) {
     })
   );
 
-  // Filter to techniques whose real savings meet the profitability threshold.
-  // Zero-savings techniques (e.g. json-keys whose envelope cost exceeds key savings)
-  // are suppressed here — they would not improve, and may worsen, the token count.
-  const profitable = detected.filter(({ r }) => r.savings >= PROFITABILITY_THRESHOLD);
+  // infoOnly techniques keep their estimated savings from detect() — not re-measured.
+  const infoDetected = infoRaw.map(({ t, r }) => ({ t, r: { ...r, exact: false } }));
+
+  // Filter actionable techniques by the profitability threshold.
+  // Zero-savings techniques (e.g. json-keys when envelope cost exceeds key savings)
+  // are suppressed — they would not improve, and may worsen, the token count.
+  const profitable = actionable.filter(({ r }) => r.savings >= PROFITABILITY_THRESHOLD);
 
   badge.textContent = profitable.length + (profitable.length === 1 ? ' issue found' : ' issues found');
   panel.classList.remove('hidden');
 
-  if (detectedRaw.length === 0) {
-    // Nothing matched any technique pattern at all.
+  if (actionableRaw.length === 0 && infoDetected.length === 0) {
+    // Nothing detected at all — no actionable patterns, no structural findings.
     list.innerHTML = '<p class="subtitle" style="padding:8px 0 4px;">✅ No obvious verbosity detected — prompt looks clean.</p>';
     actionRow.style.display = 'none';
     return;
   }
 
+  let html = '';
+
   if (profitable.length === 0) {
-    // Patterns were found but all savings are offset by overhead or measurement.
-    list.innerHTML = '<p class="subtitle" style="padding:8px 0 4px;">✅ Patterns detected but savings are offset by overhead — no profitable optimizations found.</p>';
-    actionRow.style.display = 'none';
-    return;
+    // Either no actionable patterns detected, or all savings are offset by overhead.
+    const msg = actionableRaw.length > 0
+      ? '✅ Patterns detected but savings are offset by overhead — no profitable optimizations found.'
+      : '✅ No profitable text optimizations found.';
+    html += `<p class="subtitle" style="padding:8px 0 4px;">${msg}</p>`;
   }
 
-  list.innerHTML = profitable.map(({ t, r }) => {
+  // Render selectable, actionable techniques.
+  html += profitable.map(({ t, r }) => {
     // r.savings >= PROFITABILITY_THRESHOLD here, so the zero-savings branch is unreachable.
     // Kept for defensive completeness in case threshold is later set to 0.
     const savingsLabel = r.savings === 0
@@ -585,15 +654,43 @@ async function updateSuggestions(text, model, beforeCount) {
     </label>`;
   }).join('');
 
+  // Render infoOnly detections as non-selectable structural notices below the actionable list.
+  // These are shown with an ℹ️ icon in place of a checkbox and no apply action.
+  if (infoDetected.length) {
+    html += infoDetected.map(({ t, r }) => {
+      const savingsLabel = r.savings > 0
+        ? `~${r.savings} token${r.savings !== 1 ? 's' : ''} potential`
+        : 'potential savings';
+      return `
+    <div class="technique-item" style="opacity:0.85;cursor:default;" title="${escapeAttr(t.description)}">
+      <span style="flex-shrink:0;width:18px;text-align:center;line-height:1;">ℹ️</span>
+      <div class="technique-body">
+        <div class="technique-label">
+          ${escapeHtml(r.label)}${r.example ? ' <span class="technique-example">(' + escapeHtml(r.example) + ')</span>' : ''}
+        </div>
+        <div class="technique-meta">
+          <span class="technique-category">${escapeHtml(t.category)}</span>
+          <span class="technique-savings">${escapeHtml(savingsLabel)}</span>
+        </div>
+      </div>
+    </div>`;
+    }).join('');
+  }
+
+  list.innerHTML = html;
+
   list.querySelectorAll('.technique-cb').forEach(cb => {
     cb.addEventListener('change', refreshApplyButton);
   });
 
-  actionRow.style.display = 'flex';
-
-  cleanBtn.textContent = '';  // will be set by refreshApplyButton
-  cleanBtn.disabled = false;
-  refreshApplyButton();
+  if (profitable.length > 0) {
+    actionRow.style.display = 'flex';
+    cleanBtn.textContent = '';  // will be set by refreshApplyButton
+    cleanBtn.disabled = false;
+    refreshApplyButton();
+  } else {
+    actionRow.style.display = 'none';
+  }
 }
 
 async function handleApplyOrUndo() {
