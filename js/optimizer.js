@@ -557,6 +557,29 @@ const TECHNIQUES = [
       const envelope = { __key_map: keyMapObj, __data: renamed };
       return assertValidJson(JSON.stringify(envelope), text, 'json-keys');
     },
+    preview(text) {
+      const { obj, isJson } = tryParseJson(text);
+      if (!isJson) return null;
+      const candidates = findRepeatableKeysInObj(obj);
+      if (!candidates.length) return null;
+      const { mapping, keyMapObj } = buildKeyMapping(obj, candidates);
+
+      // Build a synthetic mini-object from the top-2 affected keys so the preview
+      // is always compact regardless of input size.
+      const topKeys = candidates.slice(0, 2);
+      const mini = {};
+      topKeys.forEach(({ key }) => { mini[key] = '…'; });
+
+      const before = JSON.stringify(mini, null, 2);
+
+      const renamed = renameJsonKeys(mini, mapping);
+      const miniKeyMap = {};
+      topKeys.forEach(({ key }) => { miniKeyMap[mapping.get(key)] = key; });
+      const envelope = { __key_map: miniKeyMap, __data: renamed };
+      const after = JSON.stringify(envelope, null, 2);
+
+      return { before, after };
+    },
   },
   {
     id: 'repeated-values',
@@ -650,6 +673,23 @@ const TECHNIQUES = [
       if (!isJson) return text;
       const transformed = applySchemaExtraction(obj);
       return assertValidJson(JSON.stringify(transformed), text, 'schema-arrays');
+    },
+    preview(text) {
+      const { obj, isJson } = tryParseJson(text);
+      if (!isJson) return null;
+      const candidates = findHomogeneousArrays(obj, 'root', [], 1);
+      if (!candidates.length) return null;
+      candidates.sort((a, b) => (b.count * b.keys.length) - (a.count * a.keys.length));
+      const best = candidates[0];
+      const arr = getValueAtPath(obj, best.path);
+      if (!Array.isArray(arr)) return null;
+
+      const slice = arr.slice(0, 2);
+      const moreNote = arr.length > 2 ? `\n// … ${arr.length - 2} more rows` : '';
+      const before = JSON.stringify(slice, null, 2) + moreNote;
+      const transformed = applySchemaExtraction(slice);
+      const after = JSON.stringify(transformed, null, 2);
+      return { before, after };
     },
   },
 ];
@@ -928,6 +968,43 @@ function abbreviateKey(key, usedAbbrs) {
   let i = 1;
   while (usedAbbrs.has(key.slice(0, 4) + i)) i++;
   return key.slice(0, 4) + i;
+}
+
+/**
+ * Walk a parsed JSON value and return a minimal object containing 1-2 keys
+ * from affectedKeys. Used to build a compact before/after preview for json-keys.
+ * Returns null if no qualifying object is found.
+ */
+function findMiniObjectWithKeys(value, affectedKeys) {
+  if (value === null || typeof value !== 'object') return null;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const r = findMiniObjectWithKeys(item, affectedKeys);
+      if (r) return r;
+    }
+    return null;
+  }
+  const hitKeys = Object.keys(value).filter(k => affectedKeys.has(k));
+  if (hitKeys.length > 0) {
+    const mini = {};
+    hitKeys.slice(0, 2).forEach(k => { mini[k] = '…'; });
+    return mini;
+  }
+  for (const val of Object.values(value)) {
+    const r = findMiniObjectWithKeys(val, affectedKeys);
+    if (r) return r;
+  }
+  return null;
+}
+
+/**
+ * Retrieve a nested value from a parsed JSON object by dot-separated path.
+ * 'root' returns the value itself. Paths containing '[' (array indices) return null.
+ */
+function getValueAtPath(obj, path) {
+  if (path === 'root') return obj;
+  if (path.includes('[')) return null;
+  return path.split('.').reduce((acc, k) => (acc && typeof acc === 'object' ? acc[k] : null), obj);
 }
 
 let previousText = null;  // one-level undo
