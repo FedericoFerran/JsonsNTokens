@@ -102,17 +102,7 @@ const PROFILES = {
   },
   maximum_compression: {
     label: 'Maximum Compression',
-    description: 'Aggressive — all passes enabled, lowest token count, reduced readability',
-    techniques: ['filler', 'verbose', 'overqualify', 'hedging', 'repetition', 'json-keys', 'schema-arrays', 'linebreaks', 'whitespace'],
-  },
-  // NOTE: ai_to_ai currently enables the same passes as maximum_compression.
-  // It is kept as a distinct profile to serve as the anchor for future divergence:
-  // subtree factoring, numeric precision reduction, and provider-specific passes
-  // belong here, not in maximum_compression. Until those are implemented, both
-  // profiles produce identical output.
-  ai_to_ai: {
-    label: 'AI-to-AI',
-    description: 'All passes enabled — same as Maximum Compression today; reserved for agent-specific passes (subtree factoring, numeric reduction) in future phases',
+    description: 'All passes enabled — lowest token count, reduced readability',
     techniques: ['filler', 'verbose', 'overqualify', 'hedging', 'repetition', 'json-keys', 'schema-arrays', 'linebreaks', 'whitespace'],
   },
 };
