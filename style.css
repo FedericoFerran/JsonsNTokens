@@ -396,10 +396,117 @@ textarea { resize: vertical; line-height: 1.6; overflow: auto; }
   align-items: flex-start;
   gap: 10px;
   padding: 10px 0;
-  border-bottom: 1px solid var(--border);
   cursor: pointer;
 }
-.technique-item:last-of-type { border-bottom: none; }
+
+.technique-card {
+  border-bottom: 1px solid var(--border);
+}
+.technique-card:last-of-type { border-bottom: none; }
+
+.technique-card-row {
+  display: flex;
+  align-items: flex-start;
+}
+
+.technique-card-row .technique-item {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Chevron toggle — sits to the right of the label row */
+.technique-toggle {
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 12px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px 6px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  font-family: inherit;
+}
+.technique-toggle:hover {
+  color: var(--accent-text);
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+/* Expanded content area */
+.technique-expanded {
+  padding: 6px 12px 10px 25px;
+  border-top: 1px dashed var(--border);
+}
+
+/* Detected items list */
+.technique-items {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.technique-item-entry {
+  padding: 2px 0;
+  line-height: 1.5;
+}
+.technique-item-hidden { display: none; }
+.technique-items-more {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--accent-text);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  padding: 0;
+  text-decoration: underline;
+}
+.technique-items-more:hover { color: var(--accent-hover); }
+
+/* Before/After preview panes */
+.technique-preview {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.technique-preview-pane { flex: 1; min-width: 160px; }
+.technique-preview-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.preview-before,
+.preview-after {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 11.5px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 6px 8px;
+  border-radius: 4px;
+  max-height: 120px;
+  overflow-y: auto;
+  line-height: 1.5;
+  border: 1px solid var(--border);
+  margin: 0;
+}
+.preview-before {
+  background: var(--error-subtle);
+  color: var(--error);
+  border-color: var(--error);
+}
+.preview-after {
+  background: var(--success-subtle);
+  color: var(--success);
+  border-color: var(--success);
+}
 
 .technique-cb {
   margin-top: 3px;
