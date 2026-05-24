@@ -331,6 +331,7 @@ const TECHNIQUES = [
     description: 'Sentences that appear more than once — the model only needs to see them once',
     hint: 'Will remove the duplicate occurrence(s) — the first is kept, later copies deleted',
     detect(text) {
+      if (tryParseJson(text).isJson) return null;
       const sentences = text.match(/[^.!?\n]{25,}[.!?]/g) || [];
       const seen = new Set();
       const dupes = [];
@@ -359,6 +360,7 @@ const TECHNIQUES = [
       };
     },
     apply(text) {
+      if (tryParseJson(text).isJson) return text;
       // Find all sentence positions in the original string.
       // Using exec() gives us the match index, which string.replace() does not.
       const re = /[^.!?\n]{25,}[.!?]\s*/g;
@@ -393,6 +395,7 @@ const TECHNIQUES = [
       return out.replace(/\n{3,}/g, '\n\n').trim();
     },
     preview(text) {
+      if (tryParseJson(text).isJson) return null;
       // Find the first sentence that appears more than once
       const sentences = text.match(/[^.!?\n]{25,}[.!?]/g) || [];
       const seen = new Set();
@@ -530,7 +533,7 @@ const TECHNIQUES = [
 
       return {
         label: candidates.length + ' repeated key' + (candidates.length > 1 ? 's' : '') + ' found',
-        example: candidates[0].key + ' ×' + candidates[0].count,
+        example: null,
         savings: netSavings,
         metadataCost: envelopeCost,
         items: candidates.map(({ key, count }) => ({
@@ -660,7 +663,7 @@ const TECHNIQUES = [
 
       return {
         label,
-        example,
+        example: null,
         savings: estimatedSavings,
         items: candidates.map(c => ({
           label: (c.path === 'root' ? 'root' : c.path) + ' · ' + c.count + ' rows × ' + c.keys.length + ' keys',
@@ -980,7 +983,8 @@ function getValueAtPath(obj, path) {
   return path.split('.').reduce((acc, k) => (acc && typeof acc === 'object' ? acc[k] : null), obj);
 }
 
-let previousText = null;  // one-level undo
+let previousText = null;      // one-level undo
+let currentTokenCount = 0;   // token count of the current input; used to cap savings display
 
 /**
  * Render a compact monospace list of detected items inside an expanded card.
@@ -1146,7 +1150,11 @@ function refreshApplyButton() {
 
   const checked = [...document.querySelectorAll('.technique-cb:checked')];
   // Read savings from data-savings attribute set at render time — not from scraped text.
-  const total = checked.reduce((acc, cb) => acc + (parseInt(cb.dataset.savings) || 0), 0);
+  // Individual savings are measured independently on the original text, so their sum can
+  // exceed the actual token count when overlapping techniques are all selected.
+  // Cap at currentTokenCount to prevent displaying "saves more than you have".
+  const rawTotal = checked.reduce((acc, cb) => acc + (parseInt(cb.dataset.savings) || 0), 0);
+  const total = currentTokenCount > 0 ? Math.min(rawTotal, currentTokenCount) : rawTotal;
 
   // Total is always shown with ~ because the combined effect of multiple techniques
   // is not simply additive — interactions between passes mean the real saving may differ.
@@ -1158,6 +1166,7 @@ function refreshApplyButton() {
 }
 
 async function updateSuggestions(text, model, beforeCount) {
+  currentTokenCount = beforeCount;
   const panel      = document.getElementById('suggestions-panel');
   const badge      = document.getElementById('tips-count-badge');
   const list       = document.getElementById('input-tips-list');
