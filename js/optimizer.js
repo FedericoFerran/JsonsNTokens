@@ -63,7 +63,7 @@ const HEDGING_PATTERNS = [
   { pattern: /as (mentioned|discussed|stated) (above|earlier|before|previously),?\s*/gi, label: '"as mentioned/discussed above"' },
   { pattern: /as (I|we) (said|mentioned|noted),?\s*/gi,             label: '"as I/we said/mentioned"' },
   { pattern: /to reiterate,?\s*/gi,                                 label: '"to reiterate"' },
-  { pattern: /for (your|your) (information|reference),?\s*/gi,      label: '"for your information/reference"' },
+  { pattern: /for (your|our) (information|reference),?\s*/gi,       label: '"for your/our information/reference"' },
 ];
 
 // ── PROFITABILITY THRESHOLD ────────────────────────────────────────────────
@@ -438,7 +438,8 @@ const TECHNIQUES = [
       };
     },
     apply(text) {
-      // Detection only in Phase 8 — transformation is Phase 9B+
+      // infoOnly — no transformation. apply() should never be called because
+      // infoOnly techniques are excluded from checkedIds in handleApplyOrUndo.
       return text;
     },
   },
@@ -706,8 +707,9 @@ function renameJsonKeys(value, mapping) {
  * Tries 2 chars per segment, then 3 if there's a collision.
  */
 function abbreviateKey(key, usedAbbrs) {
-  const segments = key.split('_').length > 1
-    ? key.split('_')
+  const snakeSegments = key.split('_');
+  const segments = snakeSegments.length > 1
+    ? snakeSegments
     : key.replace(/([A-Z])/g, '_$1').toLowerCase().split('_').filter(Boolean);
 
   for (let len = 2; len <= 6; len++) {
@@ -977,6 +979,10 @@ async function handleApplyOrUndo() {
   previousText = originalText;
 
   // Apply in logical order: verbosity → redundancy → structure → whitespace last.
+  // NOTE: This order is independent of the TECHNIQUES array order — do not assume
+  // that TECHNIQUES array position implies apply position. Adding a new technique
+  // requires placing it in BOTH the TECHNIQUES array (for detection/UI) AND here
+  // (for the apply pipeline), in the correct position for each.
   // schema-arrays runs before json-keys: schema extraction eliminates key repetition in
   // arrays first, then json-keys abbreviates any multi-segment keys still remaining.
   let text = originalText;
