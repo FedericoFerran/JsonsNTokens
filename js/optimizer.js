@@ -1239,27 +1239,43 @@ async function updateSuggestions(text, model, beforeCount) {
     .map(t => { const r = t.detect(text); return r ? { t, r } : null; })
     .filter(Boolean);
 
-  // Measure MARGINAL token savings for each actionable technique.
+  // ── Pass 1: individual savings (parallel) — used for profitability gating ────
   //
-  // Techniques are applied in pipeline order (same order as handleApplyOrUndo).
-  // Each technique is measured on the cumulative output of all preceding techniques,
-  // so savings are honest marginal contributions that sum to the real combined delta.
-  // This prevents individual savings from exceeding the total token count.
+  // Each technique is measured alone against the original text. This preserves the
+  // original gating intent: json-keys with a tiny payload (where the __key_map envelope
+  // costs more than it saves) is correctly suppressed regardless of pipeline position.
+  // A technique that detects something real on the original text will always have
+  // individual savings ≥ 1, so whitespace / linebreaks / etc. are never hidden.
+  const withIndividualSavings = await Promise.all(
+    actionableRaw.map(async ({ t, r }) => {
+      const applied = t.apply(text);
+      const { count: afterCount } = await countTokens(applied, model);
+      return { t, r, individualSavings: Math.max(0, beforeCount - afterCount) };
+    })
+  );
+
+  // Gate: suppress techniques whose individual savings don't clear the threshold.
+  const gated = withIndividualSavings.filter(
+    ({ individualSavings }) => individualSavings >= PROFITABILITY_THRESHOLD
+  );
+
+  // ── Pass 2: marginal savings (sequential, pipeline order) — used for display ──
   //
-  // Techniques are displayed in TECHNIQUES array order (UI order); only the savings
-  // values are derived from the pipeline-order measurement.
+  // Each technique is applied on top of all preceding techniques so the displayed
+  // numbers are honest marginal contributions. They sum to the real combined delta
+  // and can never exceed the total token count.
   const PIPELINE_ORDER = ['filler', 'verbose', 'overqualify', 'hedging', 'repetition',
                           'schema-arrays', 'json-keys', 'linebreaks', 'whitespace'];
 
-  const actionableById = new Map(actionableRaw.map(({ t, r }) => [t.id, { t, r }]));
+  const gatedById = new Map(gated.map(({ t, r }) => [t.id, { t, r }]));
   const marginalSavings = new Map(); // id → { savings, exact }
 
   let cumulativeText  = text;
   let cumulativeCount = beforeCount;
 
   for (const id of PIPELINE_ORDER) {
-    if (!actionableById.has(id)) continue;
-    const { t } = actionableById.get(id);
+    if (!gatedById.has(id)) continue;
+    const { t } = gatedById.get(id);
     const applied = t.apply(cumulativeText);
     const { count: afterCount, method } = await countTokens(applied, model);
     marginalSavings.set(id, {
@@ -1270,15 +1286,11 @@ async function updateSuggestions(text, model, beforeCount) {
     cumulativeCount = afterCount;
   }
 
-  // Preserve TECHNIQUES display order; assign marginal savings to each entry.
-  const actionable = actionableRaw.map(({ t, r }) => {
+  // Build profitable list in TECHNIQUES display order with marginal savings for display.
+  const profitable = gated.map(({ t, r }) => {
     const ms = marginalSavings.get(t.id) || { savings: 0, exact: false };
     return { t, r: { ...r, savings: ms.savings, exact: ms.exact } };
   });
-
-  // Filter by the profitability threshold — techniques whose savings are offset
-  // by metadata overhead (e.g. json-keys envelope cost) are suppressed.
-  const profitable = actionable.filter(({ r }) => r.savings >= PROFITABILITY_THRESHOLD);
 
   badge.textContent = profitable.length + (profitable.length === 1 ? ' issue found' : ' issues found');
   panel.classList.remove('hidden');
