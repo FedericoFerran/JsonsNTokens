@@ -121,7 +121,7 @@
   <div class="panel" id="panel-json" role="tabpanel" aria-labelledby="tab-json">
 
     <div class="btn-row">
-      <button class="btn btn-primary" id="json-format-btn">Format</button>
+      <button class="btn btn-secondary" id="json-format-btn">Format</button>
       <button class="btn btn-secondary" id="json-minify-btn">Minify</button>
       <button class="btn btn-secondary" id="json-validate-btn">Validate</button>
     </div>
@@ -139,9 +139,7 @@
 
       <div class="json-panel">
         <span class="label">Output</span>
-        <div class="json-output" id="json-output" aria-live="polite">
-          <!-- populated by app.js -->
-        </div>
+        <div class="json-output json-empty" id="json-output" aria-live="polite"></div>
         <div class="json-copy-row">
           <button class="json-copy-btn" id="json-copy-btn">📋 Copy</button>
         </div>

@@ -466,11 +466,28 @@ function copyToClipboard(text, btn) {
 
 // ── JSON PRETTIFIER ────────────────────────────────────────────────────────
 
+const JSON_ACTION_BTNS = ['json-format-btn', 'json-minify-btn', 'json-validate-btn'];
+
+function setActiveJsonBtn(activeId) {
+  JSON_ACTION_BTNS.forEach(id => {
+    document.getElementById(id).classList.toggle('json-active', id === activeId);
+  });
+}
+
 function initJsonPrettifier() {
   document.getElementById('json-format-btn').addEventListener('click', jsonFormat);
   document.getElementById('json-minify-btn').addEventListener('click', jsonMinify);
   document.getElementById('json-validate-btn').addEventListener('click', jsonValidate);
   document.getElementById('json-copy-btn').addEventListener('click', jsonCopy);
+
+  // Auto-format when JSON is pasted into the input
+  document.getElementById('json-input').addEventListener('paste', () => {
+    setTimeout(() => {
+      if (document.getElementById('json-input').value.trim()) {
+        jsonFormat();
+      }
+    }, 10);
+  });
 }
 
 function getJsonInput() {
@@ -481,6 +498,7 @@ function setJsonOutput(html, isError = false) {
   const out = document.getElementById('json-output');
   out.innerHTML = isError ? escapeHtml(html) : html;
   out.classList.toggle('error', isError);
+  out.classList.remove('json-empty');
 }
 
 function parseJsonSafely(text) {
@@ -502,6 +520,7 @@ function parseJsonSafely(text) {
 }
 
 function jsonFormat() {
+  setActiveJsonBtn('json-format-btn');
   const text = getJsonInput().trim();
   if (!text) return setJsonOutput('');
 
@@ -516,6 +535,7 @@ function jsonFormat() {
 }
 
 function jsonMinify() {
+  setActiveJsonBtn('json-minify-btn');
   const text = getJsonInput().trim();
   if (!text) return setJsonOutput('');
 
@@ -529,6 +549,7 @@ function jsonMinify() {
 }
 
 function jsonValidate() {
+  setActiveJsonBtn('json-validate-btn');
   const text = getJsonInput().trim();
   if (!text) return setJsonOutput('');
 

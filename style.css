@@ -54,9 +54,9 @@ body {
 }
 
 .app-wrapper {
-  max-width: 860px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 0 20px 80px;
+  padding: 0 32px 80px;
 }
 
 a { color: var(--accent-text); text-decoration: none; }
@@ -219,7 +219,7 @@ input[type="text"]:focus {
   box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2);
 }
 
-textarea { resize: vertical; line-height: 1.6; }
+textarea { resize: vertical; line-height: 1.6; overflow: auto; }
 
 /* ===== BUTTONS ===== */
 .btn {
@@ -252,6 +252,15 @@ textarea { resize: vertical; line-height: 1.6; }
   box-shadow: var(--shadow-sm);
 }
 .btn-secondary:hover { border-color: var(--accent); color: var(--accent-text); }
+
+/* Active state for JSON action buttons (Format / Minify / Validate) */
+.btn.json-active {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+.btn.json-active:hover { background: var(--accent-hover); }
 
 .btn:focus-visible {
   outline: 2px solid var(--accent);
@@ -461,7 +470,7 @@ textarea { resize: vertical; line-height: 1.6; }
   gap: 16px;
 }
 
-.json-panel { display: flex; flex-direction: column; gap: 6px; }
+.json-panel { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 
 .json-output {
   background: var(--surface);
@@ -476,6 +485,14 @@ textarea { resize: vertical; line-height: 1.6; }
   box-shadow: var(--shadow-sm);
   white-space: pre;
   word-break: break-all;
+}
+
+.json-output.json-empty::before {
+  content: 'Paste JSON on the left, then click Format, Minify, or Validate ↑';
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-style: italic;
 }
 
 .json-output.error {
