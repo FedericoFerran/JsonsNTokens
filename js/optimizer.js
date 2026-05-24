@@ -411,13 +411,14 @@ const TECHNIQUES = [
     id: 'schema-arrays',
     category: 'Structure',
     name: 'Homogeneous arrays',
-    description: 'Arrays where ≥ 80% of elements share the same key set repeat those key names once per row — extracting the schema once would eliminate the redundancy. Transformation is planned for Phase 9B.',
-    infoOnly: true,  // detection only; apply() is a no-op; bypasses profitability filter
+    description: 'Arrays where every element shares the same key set repeat those key names once per object — schema extraction stores keys once and serializes only values per row.',
     detect(text) {
       const { obj, isJson } = tryParseJson(text);
       if (!isJson) return null;
 
-      const candidates = findHomogeneousArrays(obj);
+      // Only report arrays that apply() will actually transform: 100% uniform coverage.
+      // Arrays with 80–99% coverage (outlier rows) are not yet handled.
+      const candidates = findHomogeneousArrays(obj).filter(c => c.coverage === 100);
       if (!candidates.length) return null;
 
       // Sort by savings potential: more rows × more keys = more savings.
@@ -426,12 +427,12 @@ const TECHNIQUES = [
 
       // Estimate token savings from schema extraction.
       // Current cost per row: each key is serialized as "key": (key.length + 3 chars).
-      // After extraction: keys appear once in the schema; rows contain only values.
-      // Gross savings = key overhead × (rows − 1).  Subtract schema declaration cost.
+      // After extraction: keys appear once in __schema; __rows contain only values.
+      // Gross savings = key overhead × (rows − 1).  Subtract __schema declaration cost.
       const CHARS_PER_TOKEN = 4;
       const keyOverheadPerRow = best.keys.reduce((acc, k) => acc + k.length + 3, 0);
       const grossSavings = Math.floor(keyOverheadPerRow * (best.count - 1) / CHARS_PER_TOKEN);
-      // Schema wrapper: {"__schema":[...keys...]} — approximate overhead.
+      // {"__schema":[...keys...]} overhead — approximate.
       const schemaCost = Math.ceil((keyOverheadPerRow + 15) / CHARS_PER_TOKEN);
       const estimatedSavings = Math.max(0, grossSavings - schemaCost);
 
@@ -439,16 +440,16 @@ const TECHNIQUES = [
         ? '1 homogeneous array found'
         : candidates.length + ' homogeneous arrays found';
 
-      // Show path only when the array is not the root value itself.
-      const loc  = best.path === 'root' ? '' : best.path + ': ';
-      const example = loc + best.count + ' objects × ' + best.keys.length + ' keys'
-        + (best.coverage < 100 ? ' (' + best.coverage + '% uniform)' : '');
+      const loc     = best.path === 'root' ? '' : best.path + ': ';
+      const example = loc + best.count + ' objects × ' + best.keys.length + ' keys';
 
       return { label, example, savings: estimatedSavings };
     },
     apply(text) {
-      // Detection only in Phase 9A — transformation is Phase 9B
-      return text;
+      const { obj, isJson } = tryParseJson(text);
+      if (!isJson) return text;
+      const transformed = applySchemaExtraction(obj);
+      return assertValidJson(JSON.stringify(transformed), text, 'schema-arrays');
     },
   },
 ];
@@ -595,6 +596,56 @@ function findHomogeneousArrays(value, path = 'root', results = []) {
     findHomogeneousArrays(val, path === 'root' ? key : path + '.' + key, results);
   }
   return results;
+}
+
+/**
+ * Recursively transform homogeneous arrays into schema + rows format.
+ *
+ * Only transforms arrays where ALL elements are objects sharing the same key set
+ * (100% uniform) and the schema has ≥ 2 keys. Partial arrays (< 100% uniform)
+ * are left unchanged — they require outlier handling not yet implemented.
+ *
+ * Output format for each qualifying array:
+ *   { "__schema": ["key1", "key2", …], "__rows": [[v1, v2, …], …] }
+ *
+ * The format is valid JSON and machine-reversible: given __schema and __rows,
+ * the original array of objects can be reconstructed exactly.
+ * Nested values inside each row are recursed into, so nested homogeneous arrays
+ * are also extracted.
+ *
+ * @param {*} value - Parsed JSON value to transform
+ * @returns {*} Transformed value (new object/array — input is never mutated)
+ */
+function applySchemaExtraction(value) {
+  if (value === null || typeof value !== 'object') return value;
+
+  if (Array.isArray(value)) {
+    // Only transform if every element is a non-array object with the same sorted key set.
+    if (value.length >= 3) {
+      const allObjects = value.every(
+        el => el !== null && typeof el === 'object' && !Array.isArray(el)
+      );
+      if (allObjects) {
+        const schema = Object.keys(value[0]).sort();
+        const fp = schema.join('\0');
+        const uniform = value.every(el => Object.keys(el).sort().join('\0') === fp);
+        if (uniform && schema.length >= 2) {
+          // Recurse into each cell value before assembling rows.
+          const rows = value.map(el => schema.map(k => applySchemaExtraction(el[k])));
+          return { __schema: schema, __rows: rows };
+        }
+      }
+    }
+    // Not transformable — recurse into elements to catch nested homogeneous arrays.
+    return value.map(el => applySchemaExtraction(el));
+  }
+
+  // Object: recurse into each property value.
+  const result = {};
+  for (const [key, val] of Object.entries(value)) {
+    result[key] = applySchemaExtraction(val);
+  }
+  return result;
 }
 
 /**
@@ -818,9 +869,11 @@ async function handleApplyOrUndo() {
   const originalText = input.value;
   previousText = originalText;
 
-  // Apply in logical order: verbosity → redundancy → structure → whitespace last
+  // Apply in logical order: verbosity → redundancy → structure → whitespace last.
+  // schema-arrays runs before json-keys: schema extraction eliminates key repetition in
+  // arrays first, then json-keys abbreviates any multi-segment keys still remaining.
   let text = originalText;
-  ['filler', 'verbose', 'overqualify', 'hedging', 'repetition', 'json-keys', 'linebreaks', 'whitespace'].forEach(id => {
+  ['filler', 'verbose', 'overqualify', 'hedging', 'repetition', 'schema-arrays', 'json-keys', 'linebreaks', 'whitespace'].forEach(id => {
     if (checkedIds.has(id)) {
       const tech = TECHNIQUES.find(t => t.id === id);
       if (tech) text = tech.apply(text);
