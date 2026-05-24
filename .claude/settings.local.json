@@ -12,7 +12,10 @@
       "Bash(node -e ' *)",
       "Bash(node _review_test.mjs)",
       "Bash(node _review_test2.mjs)",
-      "Bash(node _review_xss_test.mjs)"
+      "Bash(node _review_xss_test.mjs)",
+      "WebSearch",
+      "WebFetch(domain:openai.com)",
+      "WebFetch(domain:machinelearningmastery.com)"
     ]
   }
 }

@@ -23,27 +23,11 @@
     "tokenizer": "approximate",
     "charsPerToken": 4.0
   },
-  "gpt-3.5-turbo": {
+  "gpt-4.1-nano": {
     "provider": "OpenAI",
-    "label": "GPT-3.5 Turbo",
-    "inputPer1M": 0.50,
-    "outputPer1M": 1.50,
-    "tokenizer": "tiktoken",
-    "encoding": "cl100k_base"
-  },
-  "gpt-4": {
-    "provider": "OpenAI",
-    "label": "GPT-4",
-    "inputPer1M": 30.00,
-    "outputPer1M": 60.00,
-    "tokenizer": "tiktoken",
-    "encoding": "cl100k_base"
-  },
-  "gpt-4o": {
-    "provider": "OpenAI",
-    "label": "GPT-4o",
-    "inputPer1M": 2.50,
-    "outputPer1M": 10.00,
+    "label": "GPT-4.1 Nano",
+    "inputPer1M": 0.10,
+    "outputPer1M": 0.40,
     "tokenizer": "tiktoken",
     "encoding": "o200k_base"
   },
@@ -54,6 +38,94 @@
     "outputPer1M": 0.60,
     "tokenizer": "tiktoken",
     "encoding": "o200k_base"
+  },
+  "gpt-4.1-mini": {
+    "provider": "OpenAI",
+    "label": "GPT-4.1 Mini",
+    "inputPer1M": 0.40,
+    "outputPer1M": 1.60,
+    "tokenizer": "tiktoken",
+    "encoding": "o200k_base"
+  },
+  "gpt-4.1": {
+    "provider": "OpenAI",
+    "label": "GPT-4.1",
+    "inputPer1M": 2.00,
+    "outputPer1M": 8.00,
+    "tokenizer": "tiktoken",
+    "encoding": "o200k_base"
+  },
+  "gpt-4o": {
+    "provider": "OpenAI",
+    "label": "GPT-4o",
+    "inputPer1M": 2.50,
+    "outputPer1M": 10.00,
+    "tokenizer": "tiktoken",
+    "encoding": "o200k_base"
+  },
+  "o3-mini": {
+    "provider": "OpenAI",
+    "label": "o3-mini",
+    "inputPer1M": 1.10,
+    "outputPer1M": 4.40,
+    "tokenizer": "tiktoken",
+    "encoding": "o200k_base"
+  },
+  "o1-mini": {
+    "provider": "OpenAI",
+    "label": "o1-mini",
+    "inputPer1M": 3.00,
+    "outputPer1M": 12.00,
+    "tokenizer": "tiktoken",
+    "encoding": "o200k_base"
+  },
+  "o1": {
+    "provider": "OpenAI",
+    "label": "o1",
+    "inputPer1M": 15.00,
+    "outputPer1M": 60.00,
+    "tokenizer": "tiktoken",
+    "encoding": "o200k_base"
+  },
+  "gpt-4-turbo": {
+    "provider": "OpenAI",
+    "label": "GPT-4 Turbo",
+    "inputPer1M": 10.00,
+    "outputPer1M": 30.00,
+    "tokenizer": "tiktoken",
+    "encoding": "cl100k_base"
+  },
+  "gpt-3.5-turbo": {
+    "provider": "OpenAI",
+    "label": "GPT-3.5 Turbo",
+    "inputPer1M": 0.50,
+    "outputPer1M": 1.50,
+    "tokenizer": "tiktoken",
+    "encoding": "cl100k_base"
+  },
+  "gemini-2.5-flash-lite": {
+    "provider": "Gemini",
+    "label": "Gemini 2.5 Flash-Lite",
+    "inputPer1M": 0.10,
+    "outputPer1M": 0.40,
+    "tokenizer": "approximate",
+    "charsPerToken": 3.5
+  },
+  "gemini-2.0-flash": {
+    "provider": "Gemini",
+    "label": "Gemini 2.0 Flash",
+    "inputPer1M": 0.10,
+    "outputPer1M": 0.40,
+    "tokenizer": "approximate",
+    "charsPerToken": 3.5
+  },
+  "gemini-2.5-flash": {
+    "provider": "Gemini",
+    "label": "Gemini 2.5 Flash",
+    "inputPer1M": 0.30,
+    "outputPer1M": 2.50,
+    "tokenizer": "approximate",
+    "charsPerToken": 3.5
   },
   "gemini-1.5-flash": {
     "provider": "Gemini",
@@ -68,14 +140,6 @@
     "label": "Gemini 1.5 Pro",
     "inputPer1M": 1.25,
     "outputPer1M": 5.00,
-    "tokenizer": "approximate",
-    "charsPerToken": 3.5
-  },
-  "gemini-2.0-flash": {
-    "provider": "Gemini",
-    "label": "Gemini 2.0 Flash",
-    "inputPer1M": 0.10,
-    "outputPer1M": 0.40,
     "tokenizer": "approximate",
     "charsPerToken": 3.5
   },

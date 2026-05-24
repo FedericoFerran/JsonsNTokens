@@ -83,27 +83,18 @@
     <!-- Suggestions panel (hidden until text entered) -->
     <div class="suggestions hidden" id="suggestions-panel">
       <div class="suggestions-header">
-        💡 Token Reduction Tips
-        <span class="badge" id="tips-count-badge">0 suggestions</span>
+        🔍 Input Analysis
+        <span class="badge" id="tips-count-badge">0 issues</span>
       </div>
 
-      <!-- Input tips -->
       <div class="suggestions-section" id="input-tips-section">
-        <div class="suggestions-section-title">Input Analysis</div>
         <div id="input-tips-list">
           <!-- populated by app.js -->
         </div>
-        <div class="clean-row" id="clean-row" style="display:none">
-          <button class="btn btn-primary" id="clean-btn">✨ Clean it</button>
+        <div class="technique-actions" id="clean-row" style="display:none">
+          <button class="btn-ghost" id="select-all-btn">☑ Select all</button>
+          <button class="btn btn-primary" id="clean-btn">✨ Apply selected</button>
           <span class="clean-savings" id="clean-savings-text"></span>
-        </div>
-      </div>
-
-      <!-- Output tips -->
-      <div class="suggestions-section">
-        <div class="suggestions-section-title">Output Reduction Tips</div>
-        <div id="output-tips-list">
-          <!-- populated by app.js -->
         </div>
       </div>
     </div>

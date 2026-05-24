@@ -210,11 +210,11 @@ function initTokenCounter() {
   const modelSelect = document.getElementById('model-select');
 
   input.addEventListener('input', () => {
-    // If user manually edits after a Clean it, discard the undo state
+    // If user manually edits after an Apply, discard the undo state
     if (previousText !== null) {
       previousText = null;
       const cleanBtn = document.getElementById('clean-btn');
-      if (cleanBtn) cleanBtn.textContent = '✨ Clean it';
+      if (cleanBtn) { cleanBtn.textContent = '✨ Apply selected'; cleanBtn.disabled = false; }
     }
     clearTimeout(countDebounceTimer);
     countDebounceTimer = setTimeout(updateTokenCount, 120);
@@ -260,7 +260,8 @@ async function updateTokenCount() {
 
 // ── TOKEN REDUCTION SUGGESTIONS ────────────────────────────────────────────
 
-// Filler phrases to detect and remove (case-insensitive)
+// ── Phrase lists used by TECHNIQUES ──
+
 const FILLER_PHRASES = [
   'could you please',
   'i would like you to',
@@ -271,175 +272,337 @@ const FILLER_PHRASES = [
   'certainly,',
   'of course,',
   'please note that',
-  'it is worth noting that',
   'i want you to',
+  'kindly',
 ];
 
-// Verbose → concise substitutions
 const VERBOSE_PATTERNS = [
-  { pattern: /\bin order to\b/gi,             replacement: 'to',        label: '"in order to" → "to"' },
-  { pattern: /\bdue to the fact that\b/gi,    replacement: 'because',   label: '"due to the fact that" → "because"' },
-  { pattern: /\bat this point in time\b/gi,   replacement: 'now',       label: '"at this point in time" → "now"' },
-  { pattern: /\bin the event that\b/gi,       replacement: 'if',        label: '"in the event that" → "if"' },
-  { pattern: /\bfor the purpose of\b/gi,      replacement: 'to',        label: '"for the purpose of" → "to"' },
-  { pattern: /\bwith regard to\b/gi,          replacement: 'about',     label: '"with regard to" → "about"' },
-  { pattern: /\bprior to\b/gi,                replacement: 'before',    label: '"prior to" → "before"' },
-  { pattern: /\bsubsequent to\b/gi,           replacement: 'after',     label: '"subsequent to" → "after"' },
-  { pattern: /\ba large number of\b/gi,       replacement: 'many',      label: '"a large number of" → "many"' },
-  { pattern: /\bthe majority of\b/gi,         replacement: 'most',      label: '"the majority of" → "most"' },
-  { pattern: /\bmake use of\b/gi,             replacement: 'use',       label: '"make use of" → "use"' },
-  { pattern: /\bprovide assistance\b/gi,      replacement: 'help',      label: '"provide assistance" → "help"' },
+  { pattern: /\bin order to\b/gi,             replacement: 'to',       label: '"in order to" → "to"' },
+  { pattern: /\bdue to the fact that\b/gi,    replacement: 'because',  label: '"due to the fact that" → "because"' },
+  { pattern: /\bat this point in time\b/gi,   replacement: 'now',      label: '"at this point in time" → "now"' },
+  { pattern: /\bin the event that\b/gi,       replacement: 'if',       label: '"in the event that" → "if"' },
+  { pattern: /\bfor the purpose of\b/gi,      replacement: 'to',       label: '"for the purpose of" → "to"' },
+  { pattern: /\bwith regard to\b/gi,          replacement: 'about',    label: '"with regard to" → "about"' },
+  { pattern: /\bprior to\b/gi,                replacement: 'before',   label: '"prior to" → "before"' },
+  { pattern: /\bsubsequent to\b/gi,           replacement: 'after',    label: '"subsequent to" → "after"' },
+  { pattern: /\ba large number of\b/gi,       replacement: 'many',     label: '"a large number of" → "many"' },
+  { pattern: /\bthe majority of\b/gi,         replacement: 'most',     label: '"the majority of" → "most"' },
+  { pattern: /\bmake use of\b/gi,             replacement: 'use',      label: '"make use of" → "use"' },
+  { pattern: /\bprovide assistance\b/gi,      replacement: 'help',     label: '"provide assistance" → "help"' },
+  { pattern: /\bat the present time\b/gi,     replacement: 'now',      label: '"at the present time" → "now"' },
+  { pattern: /\bhas the ability to\b/gi,      replacement: 'can',      label: '"has the ability to" → "can"' },
+  { pattern: /\bis able to\b/gi,              replacement: 'can',      label: '"is able to" → "can"' },
 ];
 
-// Static output tips shown in the second subsection
-const OUTPUT_TIPS = [
-  { snippet: 'Be concise.',                              label: 'Reduces response length significantly' },
-  { snippet: 'Answer in bullet points.',                 label: 'Eliminates padding prose' },
-  { snippet: 'Limit your response to 3 sentences.',      label: 'Hard cap on output tokens' },
-  { snippet: 'Answer only with JSON.',                   label: 'Prevents explanatory prose around structured data' },
-  { snippet: 'Skip preamble. Go straight to the answer.',label: 'Removes "Sure! Here is..." openers' },
-  { snippet: 'Avoid repeating the question.',            label: 'Models often restate it — this stops that' },
+// Hedging words that weaken statements without adding information
+const OVERQUALIFY_PATTERNS = [
+  { pattern: /\bI think,?\s+/gi,              label: '"I think"' },
+  { pattern: /\bI believe,?\s+/gi,            label: '"I believe"' },
+  { pattern: /\bI feel,?\s+/gi,               label: '"I feel"' },
+  { pattern: /\bI suppose,?\s+/gi,            label: '"I suppose"' },
+  { pattern: /\bperhaps\s+/gi,                label: '"perhaps"' },
+  { pattern: /\bmaybe\s+/gi,                  label: '"maybe"' },
+  { pattern: /\bit seems\s+/gi,               label: '"it seems"' },
+  { pattern: /\bit appears that\s+/gi,        label: '"it appears that"' },
 ];
 
-let previousText = null;  // for one-level undo of Clean it
+// Meta-commentary: phrases that announce what you're about to say
+const HEDGING_PATTERNS = [
+  { pattern: /it is important to note that\s*/gi,                   label: '"it is important to note that"' },
+  { pattern: /it should be noted that\s*/gi,                        label: '"it should be noted that"' },
+  { pattern: /please be aware that\s*/gi,                           label: '"please be aware that"' },
+  { pattern: /it is worth (noting|mentioning)\s*(that\s*)?/gi,      label: '"it is worth noting/mentioning"' },
+  { pattern: /needless to say,?\s*/gi,                              label: '"needless to say"' },
+  { pattern: /as (mentioned|discussed|stated) (above|earlier|before|previously),?\s*/gi, label: '"as mentioned/discussed above"' },
+  { pattern: /as (I|we) (said|mentioned|noted),?\s*/gi,             label: '"as I/we said/mentioned"' },
+  { pattern: /to reiterate,?\s*/gi,                                 label: '"to reiterate"' },
+  { pattern: /for (your|your) (information|reference),?\s*/gi,      label: '"for your information/reference"' },
+];
+
+// ── TECHNIQUES — each is detectable, applicable, and selectable ──
+
+const TECHNIQUES = [
+  {
+    id: 'filler',
+    category: 'Filler',
+    name: 'Filler phrases',
+    description: 'Common courtesy phrases that add no information to the prompt',
+    detect(text) {
+      const found = FILLER_PHRASES.filter(p => text.toLowerCase().includes(p.toLowerCase()));
+      if (!found.length) return null;
+      const savings = found.reduce((acc, p) => acc + Math.ceil(p.split(' ').length * 0.8), 0);
+      return {
+        label: found.length + ' filler phrase' + (found.length > 1 ? 's' : '') + ' found',
+        example: found[0],
+        savings,
+      };
+    },
+    apply(text) {
+      let out = text;
+      FILLER_PHRASES.forEach(phrase => {
+        const re = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+        out = out.replace(re, '');
+      });
+      return out;
+    },
+  },
+  {
+    id: 'verbose',
+    category: 'Verbosity',
+    name: 'Verbose phrases',
+    description: 'Long-winded expressions with shorter, equivalent alternatives',
+    detect(text) {
+      const found = VERBOSE_PATTERNS.filter(({ pattern }) => {
+        const r = pattern.test(text); pattern.lastIndex = 0; return r;
+      });
+      if (!found.length) return null;
+      return {
+        label: found.length + ' verbose phrase' + (found.length > 1 ? 's' : '') + ' found',
+        example: found[0].label,
+        savings: found.length * 2,
+      };
+    },
+    apply(text) {
+      let out = text;
+      VERBOSE_PATTERNS.forEach(({ pattern, replacement }) => {
+        out = out.replace(pattern, replacement); pattern.lastIndex = 0;
+      });
+      return out;
+    },
+  },
+  {
+    id: 'overqualify',
+    category: 'Verbosity',
+    name: 'Over-qualification',
+    description: 'Hedging words that soften statements without changing their meaning',
+    detect(text) {
+      const found = OVERQUALIFY_PATTERNS.filter(({ pattern }) => {
+        const r = pattern.test(text); pattern.lastIndex = 0; return r;
+      });
+      if (!found.length) return null;
+      return {
+        label: found.length + ' over-qualification phrase' + (found.length > 1 ? 's' : '') + ' found',
+        example: found[0].label,
+        savings: found.length * 2,
+      };
+    },
+    apply(text) {
+      let out = text;
+      OVERQUALIFY_PATTERNS.forEach(({ pattern }) => {
+        out = out.replace(pattern, ' '); pattern.lastIndex = 0;
+      });
+      return out.replace(/[ \t]{2,}/g, ' ').replace(/[ \t]+$/gm, '');
+    },
+  },
+  {
+    id: 'hedging',
+    category: 'Verbosity',
+    name: 'Meta-commentary',
+    description: 'Phrases that announce what you\'re about to say instead of just saying it',
+    detect(text) {
+      const found = HEDGING_PATTERNS.filter(({ pattern }) => {
+        const r = pattern.test(text); pattern.lastIndex = 0; return r;
+      });
+      if (!found.length) return null;
+      return {
+        label: found.length + ' meta-commentary phrase' + (found.length > 1 ? 's' : '') + ' found',
+        example: found[0].label,
+        savings: found.length * 3,
+      };
+    },
+    apply(text) {
+      let out = text;
+      HEDGING_PATTERNS.forEach(({ pattern }) => {
+        out = out.replace(pattern, ''); pattern.lastIndex = 0;
+      });
+      return out.replace(/[ \t]{2,}/g, ' ').replace(/[ \t]+$/gm, '');
+    },
+  },
+  {
+    id: 'repetition',
+    category: 'Redundancy',
+    name: 'Repeated sentences',
+    description: 'Sentences that appear more than once — the model only needs to see them once',
+    detect(text) {
+      const sentences = text.match(/[^.!?\n]{25,}[.!?]/g) || [];
+      const seen = new Set();
+      const dupes = [];
+      sentences.forEach(s => {
+        const key = s.trim().toLowerCase().replace(/\s+/g, ' ');
+        if (seen.has(key)) dupes.push(s);
+        else seen.add(key);
+      });
+      if (!dupes.length) return null;
+      const savings = dupes.reduce((acc, s) => acc + Math.ceil(s.split(/\s+/).length * 0.75), 0);
+      return {
+        label: dupes.length + ' repeated sentence' + (dupes.length > 1 ? 's' : '') + ' found',
+        example: null,
+        savings,
+      };
+    },
+    apply(text) {
+      const sentences = text.match(/[^.!?\n]{25,}[.!?]\s*/g) || [];
+      const seen = new Set();
+      let out = text;
+      sentences.forEach(s => {
+        const key = s.trim().toLowerCase().replace(/\s+/g, ' ');
+        if (seen.has(key)) {
+          out = out.replace(s, '');
+        } else {
+          seen.add(key);
+        }
+      });
+      return out.replace(/\n{3,}/g, '\n\n').trim();
+    },
+  },
+  {
+    id: 'whitespace',
+    category: 'Whitespace',
+    name: 'Redundant whitespace',
+    description: 'Multiple blank lines, trailing spaces, and consecutive spaces each cost tokens',
+    detect(text) {
+      const hasMultiNewlines  = /\n{3,}/.test(text);
+      const hasMultiSpaces    = /[ \t]{2,}/.test(text);
+      const hasTrailingSpaces = /[ \t]+$/m.test(text);
+      if (!hasMultiNewlines && !hasMultiSpaces && !hasTrailingSpaces) return null;
+      const issues = [
+        hasMultiNewlines  && 'multiple blank lines',
+        hasMultiSpaces    && 'consecutive spaces',
+        hasTrailingSpaces && 'trailing whitespace',
+      ].filter(Boolean);
+      return {
+        label: 'Redundant whitespace detected',
+        example: issues.join(', '),
+        savings: 2,
+      };
+    },
+    apply(text) {
+      return text
+        .replace(/[ \t]{2,}/g, ' ')
+        .replace(/\n{3,}/g, '\n\n')
+        .replace(/[ \t]+$/gm, '')
+        .trim();
+    },
+  },
+];
+
+let previousText = null;  // one-level undo
 
 function initSuggestions() {
-  // Render static output tips once
-  const outputList = document.getElementById('output-tips-list');
-  outputList.innerHTML = OUTPUT_TIPS.map(tip => `
-    <div class="output-tip">
-      <div>
-        <code>${escapeHtml(tip.snippet)}</code>
-        <div class="subtitle" style="margin-top:3px;font-size:11px;">${escapeHtml(tip.label)}</div>
-      </div>
-      <button class="copy-snippet-btn" data-snippet="${escapeAttr(tip.snippet)}">Copy</button>
-    </div>
-  `).join('');
-
-  outputList.querySelectorAll('.copy-snippet-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      copyToClipboard(btn.dataset.snippet, btn);
-    });
-  });
-
-  // Clean it / Undo button
-  document.getElementById('clean-btn').addEventListener('click', handleCleanOrUndo);
+  document.getElementById('clean-btn').addEventListener('click', handleApplyOrUndo);
+  document.getElementById('select-all-btn').addEventListener('click', toggleSelectAll);
 }
 
-function analyzeText(text) {
-  const findings = [];
-
-  // Filler phrases
-  const fillerFound = FILLER_PHRASES.filter(p =>
-    text.toLowerCase().includes(p.toLowerCase())
-  );
-  if (fillerFound.length > 0) {
-    const savings = fillerFound.reduce((acc, p) => acc + Math.ceil(p.split(' ').length * 0.8), 0);
-    findings.push({
-      label: `${fillerFound.length} filler phrase${fillerFound.length > 1 ? 's' : ''} found (e.g. "${fillerFound[0]}")`,
-      savings,
-      type: 'filler',
-    });
-  }
-
-  // Verbose patterns
-  VERBOSE_PATTERNS.forEach(({ pattern, label }) => {
-    if (pattern.test(text)) {
-      pattern.lastIndex = 0;
-      findings.push({ label, savings: 2, type: 'verbose' });
-    }
-    pattern.lastIndex = 0;
-  });
-
-  // Redundant whitespace
-  if (/\n{3,}/.test(text)) {
-    findings.push({ label: 'Multiple consecutive blank lines', savings: 1, type: 'whitespace' });
-  }
-  if (/[ \t]{2,}/m.test(text)) {
-    findings.push({ label: 'Consecutive spaces/tabs', savings: 1, type: 'whitespace' });
-  }
-
-  return findings;
+function toggleSelectAll() {
+  const checkboxes = [...document.querySelectorAll('.technique-cb')];
+  const allChecked = checkboxes.every(cb => cb.checked);
+  checkboxes.forEach(cb => { cb.checked = !allChecked; });
+  refreshApplyButton();
 }
 
-function cleanText(text) {
-  let cleaned = text;
+function refreshApplyButton() {
+  const btn = document.getElementById('clean-btn');
+  if (btn.textContent.startsWith('↩')) return;  // undo mode — don't overwrite
 
-  // Remove filler phrases (replace with empty string, fix double spaces after)
-  FILLER_PHRASES.forEach(phrase => {
-    const re = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-    cleaned = cleaned.replace(re, '');
-  });
+  const checked = [...document.querySelectorAll('.technique-cb:checked')];
+  const total = checked.reduce((acc, cb) => {
+    const match = cb.closest('label').querySelector('.technique-savings').textContent.match(/~(\d+)/);
+    return acc + (match ? parseInt(match[1]) : 0);
+  }, 0);
 
-  // Apply verbose → concise substitutions
-  VERBOSE_PATTERNS.forEach(({ pattern, replacement }) => {
-    cleaned = cleaned.replace(pattern, replacement);
-    pattern.lastIndex = 0;
-  });
+  document.getElementById('clean-savings-text').textContent =
+    total > 0 ? 'saves ~' + total + ' token' + (total !== 1 ? 's' : '') : '';
 
-  // Normalise whitespace
-  cleaned = cleaned.replace(/[ \t]{2,}/g, ' ');       // multi-spaces → one
-  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');        // 3+ newlines → two
-  cleaned = cleaned.replace(/[ \t]+$/gm, '');          // trailing spaces per line
-  cleaned = cleaned.trim();
-
-  return cleaned;
+  btn.textContent = checked.length > 0 ? '✨ Apply (' + checked.length + ' selected)' : '✨ Apply selected';
+  btn.disabled = checked.length === 0;
 }
 
 function updateSuggestions(text) {
-  const findings = analyzeText(text);
-  const totalSavings = findings.reduce((acc, f) => acc + f.savings, 0);
+  const panel      = document.getElementById('suggestions-panel');
+  const badge      = document.getElementById('tips-count-badge');
+  const list       = document.getElementById('input-tips-list');
+  const actionRow  = document.getElementById('clean-row');
+  const cleanBtn   = document.getElementById('clean-btn');
 
-  const panel = document.getElementById('suggestions-panel');
-  const badge = document.getElementById('tips-count-badge');
-  const list = document.getElementById('input-tips-list');
-  const cleanRow = document.getElementById('clean-row');
-  const cleanBtn = document.getElementById('clean-btn');
-  const savingsText = document.getElementById('clean-savings-text');
+  const detected = TECHNIQUES
+    .map(t => { const r = t.detect(text); return r ? { t, r } : null; })
+    .filter(Boolean);
 
-  badge.textContent = (findings.length + OUTPUT_TIPS.length) + ' suggestions';
+  badge.textContent = detected.length + (detected.length === 1 ? ' issue found' : ' issues found');
   panel.classList.remove('hidden');
 
-  if (findings.length === 0) {
-    list.innerHTML = '<p class="subtitle" style="padding:4px 0;">✅ No obvious verbosity detected.</p>';
-    cleanRow.style.display = 'none';
-  } else {
-    list.innerHTML = findings.map(f => `
-      <div class="tip-item">
-        <div>
-          <div class="tip-item-label">${escapeHtml(f.label)}</div>
-          <div class="tip-item-savings">↓ saves ~${f.savings} token${f.savings !== 1 ? 's' : ''}</div>
+  if (detected.length === 0) {
+    list.innerHTML = '<p class="subtitle" style="padding:8px 0 4px;">✅ No obvious verbosity detected — prompt looks clean.</p>';
+    actionRow.style.display = 'none';
+    return;
+  }
+
+  list.innerHTML = detected.map(({ t, r }) => `
+    <label class="technique-item">
+      <input type="checkbox" class="technique-cb" data-id="${t.id}" checked>
+      <div class="technique-body">
+        <div class="technique-label">
+          ${escapeHtml(r.label)}${r.example ? ' <span class="technique-example">(' + escapeHtml(r.example) + ')</span>' : ''}
+        </div>
+        <div class="technique-meta">
+          <span class="technique-category">${escapeHtml(t.category)}</span>
+          <span class="technique-savings">↓ ~${r.savings} token${r.savings !== 1 ? 's' : ''}</span>
         </div>
       </div>
-    `).join('');
+    </label>
+  `).join('');
 
-    cleanRow.style.display = 'flex';
-    savingsText.textContent = `saves ~${totalSavings} token${totalSavings !== 1 ? 's' : ''} total`;
+  list.querySelectorAll('.technique-cb').forEach(cb => {
+    cb.addEventListener('change', refreshApplyButton);
+  });
 
-    // Reset button to "Clean it" if text changed since last undo
-    if (previousText === null) {
-      cleanBtn.textContent = '✨ Clean it';
-    }
+  actionRow.style.display = 'flex';
+
+  if (previousText === null) {
+    cleanBtn.textContent = '';  // will be set by refreshApplyButton
+    cleanBtn.disabled = false;
   }
+
+  refreshApplyButton();
 }
 
-function handleCleanOrUndo() {
-  const btn = document.getElementById('clean-btn');
+function handleApplyOrUndo() {
+  const btn   = document.getElementById('clean-btn');
   const input = document.getElementById('token-input');
 
   if (previousText !== null) {
     // Undo
     input.value = previousText;
     previousText = null;
-    btn.textContent = '✨ Clean it';
+    btn.textContent = '✨ Apply selected';
+    btn.disabled = false;
     updateTokenCount();
-  } else {
-    // Clean
-    previousText = input.value;
-    input.value = cleanText(input.value);
-    btn.textContent = '↩ Undo';
-    updateTokenCount();
+    return;
   }
+
+  // Collect selected technique IDs
+  const checkedIds = new Set(
+    [...document.querySelectorAll('.technique-cb:checked')].map(cb => cb.dataset.id)
+  );
+  if (checkedIds.size === 0) return;
+
+  previousText = input.value;
+
+  // Apply in logical order (verbosity first, whitespace normalisation last)
+  let text = input.value;
+  ['filler', 'verbose', 'overqualify', 'hedging', 'repetition', 'whitespace'].forEach(id => {
+    if (checkedIds.has(id)) {
+      const tech = TECHNIQUES.find(t => t.id === id);
+      if (tech) text = tech.apply(text);
+    }
+  });
+
+  // Final whitespace normalisation pass
+  text = text.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+
+  input.value = text;
+  btn.textContent = '↩ Undo';
+  updateTokenCount();
 }
 
 // ── UTILS ──────────────────────────────────────────────────────────────────
