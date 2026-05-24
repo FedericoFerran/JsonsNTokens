@@ -209,6 +209,13 @@ function initTokenCounter() {
   const input = document.getElementById('token-input');
   const modelSelect = document.getElementById('model-select');
 
+  document.getElementById('token-clear-btn').addEventListener('click', () => {
+    input.value = '';
+    previousText = null;
+    document.getElementById('result-card').classList.add('hidden');
+    document.getElementById('suggestions-panel').classList.add('hidden');
+  });
+
   input.addEventListener('input', () => {
     // If user manually edits after an Apply, discard the undo state
     if (previousText !== null) {
@@ -824,6 +831,13 @@ function initJsonPrettifier() {
   document.getElementById('json-minify-btn').addEventListener('click', jsonMinify);
   document.getElementById('json-validate-btn').addEventListener('click', jsonValidate);
   document.getElementById('json-copy-btn').addEventListener('click', jsonCopy);
+  document.getElementById('json-clear-btn').addEventListener('click', () => {
+    document.getElementById('json-input').value = '';
+    const out = document.getElementById('json-output');
+    out.innerHTML = '';
+    out.className = 'json-output json-empty';
+    JSON_ACTION_BTNS.forEach(id => document.getElementById(id).classList.remove('json-active'));
+  });
 
   // Auto-format when JSON is pasted into the input
   document.getElementById('json-input').addEventListener('paste', () => {

@@ -51,7 +51,10 @@
     </div>
 
     <div class="form-row">
-      <label class="label" for="token-input">Your text or prompt</label>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <label class="label" for="token-input" style="margin-bottom:0;">Your text or prompt</label>
+        <button class="btn-ghost" id="token-clear-btn" title="Clear input">✕ Clear</button>
+      </div>
       <textarea
         id="token-input"
         rows="7"
@@ -119,7 +122,10 @@
 
     <div class="json-grid">
       <div class="json-panel">
-        <span class="label">Input</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <span class="label" style="margin-bottom:0;">Input</span>
+          <button class="btn-ghost" id="json-clear-btn" title="Clear input and output">✕ Clear</button>
+        </div>
         <textarea
           id="json-input"
           style="font-family:'JetBrains Mono','Fira Code',monospace;font-size:13px;"
