@@ -464,6 +464,73 @@ function copyToClipboard(text, btn) {
   });
 }
 
+// ── JSON TREE RENDERER ─────────────────────────────────────────────────────
+
+/**
+ * Entry point — renders a parsed JS value as a collapsible HTML tree.
+ */
+function renderJsonTree(value) {
+  return '<div class="jt-root">' + renderTreeNode(null, value, true) + '</div>';
+}
+
+/**
+ * Render a single node (key-value pair or array item).
+ * key:    string key name, or null for root/array items
+ * value:  any JS value
+ * isLast: true if no trailing comma needed
+ */
+function renderTreeNode(key, value, isLast) {
+  const keyHtml = key !== null
+    ? '<span class="jk">' + escapeHtml(JSON.stringify(key)) + '</span><span class="jt-p">: </span>'
+    : '';
+  const comma = isLast ? '' : '<span class="jt-p">,</span>';
+
+  // Leaf (primitive) — single line
+  if (value === null || typeof value !== 'object') {
+    return '<div class="jt-line">' + keyHtml + renderPrimitive(value) + comma + '</div>';
+  }
+
+  const isArr = Array.isArray(value);
+  const entries = isArr ? value : Object.keys(value);
+  const count = entries.length;
+  const ob = isArr ? '[' : '{';
+  const cb = isArr ? ']' : '}';
+
+  // Empty object / array — single line
+  if (count === 0) {
+    return '<div class="jt-line">' + keyHtml + '<span class="jt-p">' + ob + cb + '</span>' + comma + '</div>';
+  }
+
+  const summary = isArr
+    ? '[… ' + count + ' item' + (count !== 1 ? 's' : '') + ']'
+    : '{… ' + count + ' key' + (count !== 1 ? 's' : '') + '}';
+
+  const children = isArr
+    ? value.map((v, i) => renderTreeNode(null, v, i === count - 1)).join('')
+    : Object.keys(value).map((k, i) => renderTreeNode(k, value[k], i === count - 1)).join('');
+
+  return (
+    '<div class="jt-collapsible">' +
+      '<div class="jt-open-line">' +
+        '<button class="jt-toggle" title="Collapse">−</button>' +
+        keyHtml +
+        '<span class="jt-p">' + ob + '</span>' +
+        '<span class="jt-summary">' + escapeHtml(summary) + comma + '</span>' +
+      '</div>' +
+      '<div class="jt-children">' + children + '</div>' +
+      '<div class="jt-close-line"><span class="jt-p">' + cb + '</span>' + comma + '</div>' +
+    '</div>'
+  );
+}
+
+function renderPrimitive(value) {
+  if (value === null)            return '<span class="jb">null</span>';
+  if (typeof value === 'boolean') return '<span class="jb">' + value + '</span>';
+  if (typeof value === 'number')  return '<span class="jn">' + escapeHtml(String(value)) + '</span>';
+  if (typeof value === 'string')  return '<span class="js">' + escapeHtml(JSON.stringify(value)) + '</span>';
+  return escapeHtml(String(value));
+}
+
 // ── JSON PRETTIFIER ────────────────────────────────────────────────────────
 
 const JSON_ACTION_BTNS = ['json-format-btn', 'json-minify-btn', 'json-validate-btn'];
@@ -488,6 +555,17 @@ function initJsonPrettifier() {
       }
     }, 10);
   });
+
+  // Toggle collapse/expand on tree nodes (event delegation)
+  document.getElementById('json-output').addEventListener('click', e => {
+    const btn = e.target.closest('.jt-toggle');
+    if (!btn) return;
+    const node = btn.closest('.jt-collapsible');
+    if (!node) return;
+    const folded = node.classList.toggle('folded');
+    btn.textContent = folded ? '+' : '−';
+    btn.title = folded ? 'Expand' : 'Collapse';
+  });
 }
 
 function getJsonInput() {
@@ -498,7 +576,7 @@ function setJsonOutput(html, isError = false) {
   const out = document.getElementById('json-output');
   out.innerHTML = isError ? escapeHtml(html) : html;
   out.classList.toggle('error', isError);
-  out.classList.remove('json-empty');
+  out.classList.remove('json-empty', 'jt-mode');
 }
 
 function parseJsonSafely(text) {
@@ -530,8 +608,10 @@ function jsonFormat() {
     return;
   }
 
-  const pretty = JSON.stringify(value, null, 2);
-  setJsonOutput(syntaxHighlight(pretty));
+  const out = document.getElementById('json-output');
+  out.innerHTML = renderJsonTree(value);
+  out.classList.remove('error', 'json-empty');
+  out.classList.add('jt-mode');
 }
 
 function jsonMinify() {
@@ -576,6 +656,17 @@ function countJsonKeys(obj) {
 function jsonCopy() {
   const out = document.getElementById('json-output');
   const btn = document.getElementById('json-copy-btn');
+
+  // In tree mode, copy clean formatted JSON rather than DOM text
+  if (out.classList.contains('jt-mode')) {
+    const text = getJsonInput().trim();
+    if (!text) return;
+    const { value, error } = parseJsonSafely(text);
+    if (error) return;
+    copyToClipboard(JSON.stringify(value, null, 2), btn);
+    return;
+  }
+
   const text = out.innerText || out.textContent;
   if (!text.trim()) return;
   copyToClipboard(text, btn);

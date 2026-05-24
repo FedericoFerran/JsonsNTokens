@@ -534,6 +534,68 @@ textarea { resize: vertical; line-height: 1.6; overflow: auto; }
 }
 .json-copy-btn:hover { border-color: var(--accent); color: var(--accent-text); }
 
+/* ===== JSON TREE RENDERER ===== */
+.json-output.jt-mode {
+  white-space: normal;
+  word-break: break-word;
+}
+
+.jt-root { line-height: 1.85; }
+
+.jt-line,
+.jt-open-line,
+.jt-close-line {
+  display: block;
+  white-space: nowrap;
+}
+
+.jt-children {
+  display: block;
+  padding-left: 16px;
+  border-left: 1.5px solid var(--border);
+  margin-left: 6px;
+}
+
+.jt-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  margin-right: 4px;
+  vertical-align: middle;
+  user-select: none;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+.jt-toggle:hover {
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.jt-summary {
+  display: none;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-left: 4px;
+}
+
+/* Folded state: hide children + closing bracket, show summary */
+.jt-collapsible.folded > .jt-children,
+.jt-collapsible.folded > .jt-close-line { display: none; }
+.jt-collapsible.folded > .jt-open-line .jt-summary { display: inline; }
+
+.jt-p { color: var(--text-muted); } /* punctuation: braces, colons, commas */
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 640px) {
   .json-grid { grid-template-columns: 1fr; }
