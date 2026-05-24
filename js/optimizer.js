@@ -983,8 +983,16 @@ function getValueAtPath(obj, path) {
   return path.split('.').reduce((acc, k) => (acc && typeof acc === 'object' ? acc[k] : null), obj);
 }
 
-let previousText = null;      // one-level undo
-let currentTokenCount = 0;   // token count of the current input; used to cap savings display
+let previousText = null;       // one-level undo
+let currentTokenCount = 0;    // token count of the current input (before any apply)
+let currentInputText  = '';   // raw input text at last render; used for combined savings
+let currentInputModel = null; // model at last render; used for combined savings
+
+// ── Debounce helper ───────────────────────────────────────────────────────────
+function debounce(fn, ms) {
+  let timer;
+  return function(...args) { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); };
+}
 
 /**
  * Render a compact monospace list of detected items inside an expanded card.
@@ -1035,6 +1043,43 @@ function renderTechniquePreview(t, text) {
       </div>
     </div>`;
 }
+
+/**
+ * Recompute the real combined savings for the currently-checked techniques by
+ * running the apply pipeline in sequence on currentInputText and counting tokens.
+ * Debounced 300 ms so rapid checkbox toggles don't spam the tokenizer.
+ * Updates #clean-savings-text directly when the async result arrives.
+ */
+const _refreshSavingsDisplay = debounce(async function() {
+  const btn = document.getElementById('clean-btn');
+  if (!btn || btn.textContent.startsWith('↩')) return; // undo mode — leave as-is
+  const savingsEl = document.getElementById('clean-savings-text');
+  if (!savingsEl) return;
+
+  const checked = [...document.querySelectorAll('.technique-cb:checked')];
+  if (!checked.length || !currentInputText || !currentInputModel) {
+    savingsEl.textContent = '';
+    return;
+  }
+
+  // Run the same apply pipeline as handleApplyOrUndo for the checked techniques.
+  const checkedIds = new Set(checked.map(cb => cb.dataset.id));
+  let out = currentInputText;
+  ['filler', 'verbose', 'overqualify', 'hedging', 'repetition', 'schema-arrays', 'json-keys', 'linebreaks', 'whitespace'].forEach(id => {
+    if (checkedIds.has(id)) {
+      const tech = TECHNIQUES.find(t => t.id === id);
+      if (tech) out = tech.apply(out);
+    }
+  });
+  out = out.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+
+  const { count: afterCount } = await countTokens(out, currentInputModel);
+  const saved = Math.max(0, currentTokenCount - afterCount);
+
+  // Guard: discard result if we've entered undo mode while counting
+  if (!btn || btn.textContent.startsWith('↩')) return;
+  savingsEl.textContent = saved > 0 ? 'saves ' + saved + ' token' + (saved !== 1 ? 's' : '') : '';
+}, 300);
 
 function initSuggestions() {
   document.getElementById('clean-btn').addEventListener('click', handleApplyOrUndo);
@@ -1149,24 +1194,19 @@ function refreshApplyButton() {
   if (btn.textContent.startsWith('↩')) return;  // undo mode — don't overwrite
 
   const checked = [...document.querySelectorAll('.technique-cb:checked')];
-  // Read savings from data-savings attribute set at render time — not from scraped text.
-  // Individual savings are measured independently on the original text, so their sum can
-  // exceed the actual token count when overlapping techniques are all selected.
-  // Cap at currentTokenCount to prevent displaying "saves more than you have".
-  const rawTotal = checked.reduce((acc, cb) => acc + (parseInt(cb.dataset.savings) || 0), 0);
-  const total = currentTokenCount > 0 ? Math.min(rawTotal, currentTokenCount) : rawTotal;
-
-  // Total is always shown with ~ because the combined effect of multiple techniques
-  // is not simply additive — interactions between passes mean the real saving may differ.
-  document.getElementById('clean-savings-text').textContent =
-    total > 0 ? 'saves ~' + total + ' token' + (total !== 1 ? 's' : '') : '';
 
   btn.textContent = checked.length > 0 ? '✨ Apply (' + checked.length + ' selected)' : '✨ Apply selected';
   btn.disabled = checked.length === 0;
+
+  // Clear stale savings text immediately; real combined savings loads asynchronously.
+  document.getElementById('clean-savings-text').textContent = '';
+  if (checked.length > 0) _refreshSavingsDisplay();
 }
 
 async function updateSuggestions(text, model, beforeCount) {
   currentTokenCount = beforeCount;
+  currentInputText  = text;
+  currentInputModel = model;
   const panel      = document.getElementById('suggestions-panel');
   const badge      = document.getElementById('tips-count-badge');
   const list       = document.getElementById('input-tips-list');
