@@ -77,6 +77,41 @@ const HEDGING_PATTERNS = [
 //
 const PROFITABILITY_THRESHOLD = 1;
 
+// ── COMPRESSION PROFILES ───────────────────────────────────────────────────
+//
+// Each profile lists the technique IDs it enables. Profiles are orchestration
+// layers only — they contain no transformation logic of their own.
+// applyProfile() checks/unchecks technique checkboxes to match the profile;
+// the existing apply pipeline runs unchanged.
+//
+const PROFILES = {
+  prompt_preservation: {
+    label: 'Prompt Preservation',
+    description: 'Whitespace only — preserves prompt clarity and instruction quality',
+    techniques: ['whitespace'],
+  },
+  safe_readable: {
+    label: 'Safe & Readable',
+    description: 'Light cleanup — removes filler phrases and normalizes whitespace',
+    techniques: ['filler', 'verbose', 'whitespace'],
+  },
+  balanced: {
+    label: 'Balanced',
+    description: 'Moderate optimization — aliasing, deduplication, schema extraction',
+    techniques: ['filler', 'verbose', 'overqualify', 'hedging', 'repetition', 'json-keys', 'schema-arrays', 'whitespace'],
+  },
+  maximum_compression: {
+    label: 'Maximum Compression',
+    description: 'Aggressive — lowest token count, reduced readability',
+    techniques: ['filler', 'verbose', 'overqualify', 'hedging', 'repetition', 'json-keys', 'schema-arrays', 'linebreaks', 'whitespace'],
+  },
+  ai_to_ai: {
+    label: 'AI-to-AI',
+    description: 'Ultra-aggressive — optimized for agent-to-agent payloads, minimal human readability',
+    techniques: ['filler', 'verbose', 'overqualify', 'hedging', 'repetition', 'json-keys', 'schema-arrays', 'linebreaks', 'whitespace'],
+  },
+};
+
 // ── TECHNIQUES — each is detectable, applicable, and selectable ──
 
 const TECHNIQUES = [
@@ -690,6 +725,73 @@ let previousText = null;  // one-level undo
 function initSuggestions() {
   document.getElementById('clean-btn').addEventListener('click', handleApplyOrUndo);
   document.getElementById('select-all-btn').addEventListener('click', toggleSelectAll);
+  initProfileSelector();
+}
+
+// Inject the profile <select> once into the suggestions panel at init time.
+// It sits above #input-tips-list and persists across updateSuggestions() re-renders
+// because updateSuggestions only writes to list.innerHTML, not the surrounding structure.
+function initProfileSelector() {
+  const section = document.getElementById('input-tips-section');
+  const list    = document.getElementById('input-tips-list');
+
+  const wrapper = document.createElement('div');
+  wrapper.id = 'profile-selector-row';
+  wrapper.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0 8px;';
+
+  const lbl = document.createElement('label');
+  lbl.htmlFor = 'profile-select';
+  lbl.className = 'label';
+  lbl.style.cssText = 'margin-bottom:0;white-space:nowrap;font-size:13px;';
+  lbl.textContent = 'Profile:';
+
+  const sel = document.createElement('select');
+  sel.id = 'profile-select';
+  sel.style.cssText = [
+    'font-size:13px',
+    'padding:3px 8px',
+    'border-radius:6px',
+    'border:1px solid var(--border)',
+    'background:var(--bg-input)',
+    'color:var(--text)',
+    'cursor:pointer',
+    'flex:1',
+  ].join(';');
+
+  // "Custom" sentinel — selected whenever the user overrides checkboxes manually.
+  const customOpt = document.createElement('option');
+  customOpt.value = '';
+  customOpt.textContent = 'Custom';
+  sel.appendChild(customOpt);
+
+  for (const [id, profile] of Object.entries(PROFILES)) {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = profile.label;
+    opt.title = profile.description;
+    sel.appendChild(opt);
+  }
+
+  sel.addEventListener('change', () => {
+    if (sel.value) applyProfile(sel.value);
+  });
+
+  wrapper.appendChild(lbl);
+  wrapper.appendChild(sel);
+  section.insertBefore(wrapper, list);
+}
+
+// Check/uncheck technique checkboxes to match the selected profile.
+// Only affects techniques that are currently rendered (profitable ones).
+// Techniques not present in the current list are silently skipped.
+function applyProfile(profileId) {
+  const profile = PROFILES[profileId];
+  if (!profile) return;
+  const techniqueSet = new Set(profile.techniques);
+  document.querySelectorAll('.technique-cb').forEach(cb => {
+    cb.checked = techniqueSet.has(cb.dataset.id);
+  });
+  refreshApplyButton();
 }
 
 function toggleSelectAll() {
@@ -830,7 +932,12 @@ async function updateSuggestions(text, model, beforeCount) {
   list.innerHTML = html;
 
   list.querySelectorAll('.technique-cb').forEach(cb => {
-    cb.addEventListener('change', refreshApplyButton);
+    cb.addEventListener('change', () => {
+      // Manual checkbox toggle → profile no longer matches any preset → reset to "Custom".
+      const profileSel = document.getElementById('profile-select');
+      if (profileSel) profileSel.value = '';
+      refreshApplyButton();
+    });
   });
 
   if (profitable.length > 0) {
