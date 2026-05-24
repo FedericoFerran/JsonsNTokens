@@ -472,12 +472,18 @@ textarea { resize: vertical; line-height: 1.6; overflow: auto; }
 
 .json-panel { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 
+#json-input,
+.json-output {
+  height: 420px;
+  min-height: unset;
+  flex: 1 1 420px;
+}
+
 .json-output {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px 14px;
-  min-height: 260px;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 12.5px;
   line-height: 1.7;
@@ -513,11 +519,6 @@ textarea { resize: vertical; line-height: 1.6; overflow: auto; }
 [data-theme="dark"] .js { color: #34d399; }
 [data-theme="dark"] .jn { color: #fbbf24; }
 [data-theme="dark"] .jb { color: #f87171; }
-
-.json-copy-row {
-  display: flex;
-  justify-content: flex-end;
-}
 
 .json-copy-btn {
   padding: 5px 14px;

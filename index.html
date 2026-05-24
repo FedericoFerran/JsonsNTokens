@@ -131,18 +131,17 @@
         <span class="label">Input</span>
         <textarea
           id="json-input"
-          rows="14"
           style="font-family:'JetBrains Mono','Fira Code',monospace;font-size:13px;"
           placeholder='Paste your JSON here…'
         ></textarea>
       </div>
 
       <div class="json-panel">
-        <span class="label">Output</span>
-        <div class="json-output json-empty" id="json-output" aria-live="polite"></div>
-        <div class="json-copy-row">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <span class="label" style="margin-bottom:0;">Output</span>
           <button class="json-copy-btn" id="json-copy-btn">📋 Copy</button>
         </div>
+        <div class="json-output json-empty" id="json-output" aria-live="polite"></div>
       </div>
     </div>
 
