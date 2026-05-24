@@ -15,8 +15,8 @@
 | 6 | ✅ Done | Correctness — Metadata cost subtraction |
 | 7 | ✅ Done | UX — Profitability threshold |
 | 8 | ✅ Done | Structure — Repeated value detection |
-| 9A | ⬜ Next | Structure — Schema detection |
-| 9B | ⬜ Pending | Structure — Schema transformation |
+| 9A | ✅ Done | Structure — Schema detection |
+| 9B | ⬜ Next | Structure — Schema transformation |
 | 10 | ⬜ Pending | Extension — Compression profiles |
 
 ---
@@ -199,7 +199,7 @@ to the current engine.
 
 ---
 
-# Phase 9A — Structure: Schema Detection
+# Phase 9A — Structure: Schema Detection ✅
 
 **Goal:** Detect homogeneous array schemas (arrays where every object has the same key set).
 
