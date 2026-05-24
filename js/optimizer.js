@@ -982,6 +982,56 @@ function getValueAtPath(obj, path) {
 
 let previousText = null;  // one-level undo
 
+/**
+ * Render a compact monospace list of detected items inside an expanded card.
+ * Shows up to 10 items; a "show more" button reveals the rest.
+ * @param {Array|undefined} items  - Array of { label, count } from detect()
+ * @returns {string} HTML string, or '' if items is empty/undefined
+ */
+function renderTechniqueItems(items) {
+  if (!items || !items.length) return '';
+  const visible = items.slice(0, 10);
+  const extra   = items.slice(10);
+  let html = '<div class="technique-items">';
+  html += visible.map(item =>
+    `<div class="technique-item-entry">${escapeHtml(item.label)}</div>`
+  ).join('');
+  if (extra.length) {
+    html += `<button class="technique-items-more" type="button">+ ${extra.length} more</button>`;
+    html += extra.map(item =>
+      `<div class="technique-item-entry technique-item-hidden">${escapeHtml(item.label)}</div>`
+    ).join('');
+  }
+  html += '</div>';
+  return html;
+}
+
+/**
+ * Render a before/after preview pane for a technique expanded section.
+ * Calls t.preview(text) — returns '' if no preview method or no match.
+ * @param {Object} t     - Technique object (must have t.preview function)
+ * @param {string} text  - Current user input
+ * @returns {string} HTML string
+ */
+function renderTechniquePreview(t, text) {
+  if (!t.preview) return '';
+  let result;
+  try { result = t.preview(text); } catch { return ''; }
+  if (!result) return '';
+  const { before, after } = result;
+  return `
+    <div class="technique-preview">
+      <div class="technique-preview-pane">
+        <div class="technique-preview-label">Before</div>
+        <pre class="preview-before">${escapeHtml(before)}</pre>
+      </div>
+      <div class="technique-preview-pane">
+        <div class="technique-preview-label">After</div>
+        <pre class="preview-after">${escapeHtml(after)}</pre>
+      </div>
+    </div>`;
+}
+
 function initSuggestions() {
   document.getElementById('clean-btn').addEventListener('click', handleApplyOrUndo);
   document.getElementById('select-all-btn').addEventListener('click', toggleSelectAll);
@@ -1152,20 +1202,29 @@ async function updateSuggestions(text, model, beforeCount) {
     const savingsLabel = r.savings === 0
       ? 'no token savings'
       : (r.exact ? `↓ ${r.savings} token${r.savings !== 1 ? 's' : ''}` : `↓ ~${r.savings} token${r.savings !== 1 ? 's' : ''}`);
+
+    const itemsHtml   = renderTechniqueItems(r.items);
+    const previewHtml = renderTechniquePreview(t, text);
+    const hasExpanded = itemsHtml || previewHtml;
+
     return `
-    <label class="technique-item">
-      <input type="checkbox" class="technique-cb" data-id="${t.id}" data-savings="${r.savings}" checked>
-      <div class="technique-body">
-        <div class="technique-label">
-          ${escapeHtml(r.label)}${r.example ? ' <span class="technique-example">(' + escapeHtml(r.example) + ')</span>' : ''}
+    <div class="technique-card">
+      <label class="technique-item">
+        <input type="checkbox" class="technique-cb" data-id="${t.id}" data-savings="${r.savings}" checked>
+        <div class="technique-body">
+          <div class="technique-label">
+            ${escapeHtml(r.label)}${r.example ? ' <span class="technique-example">(' + escapeHtml(r.example) + ')</span>' : ''}
+          </div>
+          ${t.hint ? '<div class="technique-hint">' + escapeHtml(t.hint) + '</div>' : ''}
+          <div class="technique-meta">
+            <span class="technique-category">${escapeHtml(t.category)}</span>
+            <span class="technique-savings">${escapeHtml(savingsLabel)}</span>
+          </div>
         </div>
-        ${t.hint ? '<div class="technique-hint">' + escapeHtml(t.hint) + '</div>' : ''}
-        <div class="technique-meta">
-          <span class="technique-category">${escapeHtml(t.category)}</span>
-          <span class="technique-savings">${escapeHtml(savingsLabel)}</span>
-        </div>
-      </div>
-    </label>`;
+        ${hasExpanded ? '<button class="technique-toggle" type="button" aria-expanded="false">▸</button>' : ''}
+      </label>
+      ${hasExpanded ? `<div class="technique-expanded" hidden>${itemsHtml}${previewHtml}</div>` : ''}
+    </div>`;
   }).join('');
 
   list.innerHTML = html;
