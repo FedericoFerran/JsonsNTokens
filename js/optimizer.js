@@ -169,7 +169,7 @@ const TECHNIQUES = [
       const ctxEnd   = Math.min(text.length, m.index + phrase.length + 40);
       const slice = text.slice(ctxStart, ctxEnd);
       const after = slice
-        .replace(new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '')
+        .replace(new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), '')
         .replace(/\s{2,}/g, ' ').trim();
       return {
         before: (ctxStart > 0 ? '…' : '') + slice    + (ctxEnd < text.length ? '…' : ''),
@@ -220,7 +220,6 @@ const TECHNIQUES = [
       const ctxEnd   = Math.min(text.length, m.index + m[0].length + 40);
       const slice = text.slice(ctxStart, ctxEnd);
       const after = slice.replace(pattern, replacement);
-      pattern.lastIndex = 0;
       return {
         before: (ctxStart > 0 ? '…' : '') + slice + (ctxEnd < text.length ? '…' : ''),
         after:  (ctxStart > 0 ? '…' : '') + after + (ctxEnd < text.length ? '…' : ''),
@@ -270,7 +269,6 @@ const TECHNIQUES = [
       const ctxEnd   = Math.min(text.length, m.index + m[0].length + 40);
       const slice = text.slice(ctxStart, ctxEnd);
       const after = slice.replace(pattern, ' ').replace(/\s{2,}/g, ' ').trim();
-      pattern.lastIndex = 0;
       return {
         before: (ctxStart > 0 ? '…' : '') + slice + (ctxEnd < text.length ? '…' : ''),
         after:  (ctxStart > 0 ? '…' : '') + after + (ctxEnd < text.length ? '…' : ''),
@@ -320,7 +318,6 @@ const TECHNIQUES = [
       const ctxEnd   = Math.min(text.length, m.index + m[0].length + 40);
       const slice = text.slice(ctxStart, ctxEnd);
       const after = slice.replace(pattern, '').replace(/\s{2,}/g, ' ').trim();
-      pattern.lastIndex = 0;
       return {
         before: (ctxStart > 0 ? '…' : '') + slice + (ctxEnd < text.length ? '…' : ''),
         after:  (ctxStart > 0 ? '…' : '') + after + (ctxEnd < text.length ? '…' : ''),
