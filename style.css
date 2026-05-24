@@ -440,6 +440,7 @@ textarea { resize: vertical; line-height: 1.6; overflow: auto; }
 .technique-expanded {
   padding: 6px 12px 10px 25px;
   border-top: 1px dashed var(--border);
+  margin-bottom: 2px;
 }
 
 /* Detected items list */
