@@ -1294,7 +1294,7 @@ async function updateSuggestions(text, model, beforeCount) {
     <div class="technique-card">
       <div class="technique-card-row">
         <label class="technique-item">
-          <input type="checkbox" class="technique-cb" data-id="${t.id}" data-savings="${r.savings}" checked>
+          <input type="checkbox" class="technique-cb" data-id="${t.id}" data-savings="${r.savings}" data-exact="${r.exact ? 'true' : 'false'}" checked>
           <div class="technique-body">
             <div class="technique-label">
               ${escapeHtml(r.label)}${r.example ? ' <span class="technique-example">(' + escapeHtml(r.example) + ')</span>' : ''}
