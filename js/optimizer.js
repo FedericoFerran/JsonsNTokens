@@ -1229,8 +1229,25 @@ function refreshApplyButton() {
   btn.textContent = checked.length > 0 ? '✨ Apply (' + checked.length + ' selected)' : '✨ Apply selected';
   btn.disabled = checked.length === 0;
 
-  // Clear stale savings text immediately; real combined savings loads asynchronously.
+  // Clear stale combined savings text immediately; real combined savings loads asynchronously.
   document.getElementById('clean-savings-text').textContent = '';
+
+  // Per-card badges: checked → loading indicator while marginals recompute;
+  // unchecked → individual savings ("what you'd gain by adding this").
+  document.querySelectorAll('.technique-cb').forEach(cb => {
+    const badge = cb.closest('.technique-card')?.querySelector('.technique-savings');
+    if (!badge) return;
+    if (cb.checked) {
+      badge.textContent = '…';
+    } else {
+      const s     = parseInt(cb.dataset.savings, 10) || 0;
+      const exact = cb.dataset.exact === 'true';
+      badge.textContent = s > 0
+        ? (exact ? `↓ ${s} token${s !== 1 ? 's' : ''}` : `↓ ~${s} token${s !== 1 ? 's' : ''}`)
+        : 'no token savings';
+    }
+  });
+
   if (checked.length > 0) _refreshSavingsDisplay();
 }
 
