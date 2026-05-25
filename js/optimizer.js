@@ -1069,8 +1069,11 @@ const _refreshSavingsDisplay = debounce(async function() {
   const PIPELINE_ORDER = ['filler', 'verbose', 'overqualify', 'hedging', 'repetition',
                           'schema-arrays', 'json-keys', 'linebreaks', 'whitespace'];
 
+  const startCount = currentTokenCount;
+  const model      = currentInputModel;
+
   let out       = currentInputText;
-  let prevCount = currentTokenCount;
+  let prevCount = startCount;
 
   for (const id of PIPELINE_ORDER) {
     if (!checkedIds.has(id)) continue;
@@ -1078,7 +1081,7 @@ const _refreshSavingsDisplay = debounce(async function() {
     if (!tech) continue;
 
     out = tech.apply(out);
-    const { count: afterCount, method } = await countTokens(out, currentInputModel);
+    const { count: afterCount, method } = await countTokens(out, model);
 
     // Guard mid-loop: bail if undo mode was entered while awaiting the tokenizer
     if (!btn || btn.textContent.startsWith('↩')) return;
@@ -1087,11 +1090,9 @@ const _refreshSavingsDisplay = debounce(async function() {
     const card  = document.querySelector(`.technique-cb[data-id="${id}"]`)?.closest('.technique-card');
     const badge = card?.querySelector('.technique-savings');
     if (badge) {
-      badge.textContent = marginal === 0
-        ? '↓ ~0 tokens'
-        : (method === 'exact'
-            ? `↓ ${marginal} token${marginal !== 1 ? 's' : ''}`
-            : `↓ ~${marginal} token${marginal !== 1 ? 's' : ''}`);
+      badge.textContent = method === 'exact'
+        ? `↓ ${marginal} token${marginal !== 1 ? 's' : ''}`
+        : (marginal === 0 ? '↓ ~0 tokens' : `↓ ~${marginal} token${marginal !== 1 ? 's' : ''}`);
     }
 
     prevCount = afterCount;
@@ -1102,12 +1103,12 @@ const _refreshSavingsDisplay = debounce(async function() {
   // actually gets when they click it. (If `whitespace` was the last checked technique this
   // count is effectively a no-op since whitespace already normalises.)
   out = out.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
-  const { count: finalCount } = await countTokens(out, currentInputModel);
+  const { count: finalCount } = await countTokens(out, model);
 
   // Guard: discard if undo mode entered during final count
   if (!btn || btn.textContent.startsWith('↩')) return;
 
-  const saved = Math.max(0, currentTokenCount - finalCount);
+  const saved = Math.max(0, startCount - finalCount);
   savingsEl.textContent = saved > 0 ? 'saves ' + saved + ' token' + (saved !== 1 ? 's' : '') : '';
 }, 300);
 
