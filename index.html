@@ -118,7 +118,6 @@
       <button class="btn btn-secondary" id="json-format-btn">Format</button>
       <button class="btn btn-secondary" id="json-minify-btn">Minify</button>
       <button class="btn btn-secondary" id="json-validate-btn">Validate</button>
-      <button class="btn btn-secondary" id="json-expand-collapse-btn" title="Expand/Collapse all tree nodes">⇄ Expand/Collapse All</button>
     </div>
 
     <div class="json-grid">
@@ -137,7 +136,10 @@
       <div class="json-panel">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
           <span class="label" style="margin-bottom:0;">Output</span>
-          <button class="json-copy-btn" id="json-copy-btn">📋 Copy</button>
+          <div style="display:flex;gap:6px;">
+            <button class="json-copy-btn" id="json-expand-collapse-btn" title="Expand/Collapse all tree nodes">⇄ Expand/Collapse All</button>
+            <button class="json-copy-btn" id="json-copy-btn">📋 Copy</button>
+          </div>
         </div>
         <div class="json-output json-empty" id="json-output" aria-live="polite"></div>
       </div>
