@@ -76,6 +76,8 @@ function renderPrimitive(value) {
 
 const JSON_ACTION_BTNS = ['json-format-btn', 'json-minify-btn', 'json-validate-btn'];
 
+let jsonTreeExpanded = true; // track current state of tree expansion
+
 function setActiveJsonBtn(activeId) {
   JSON_ACTION_BTNS.forEach(id => {
     document.getElementById(id).classList.toggle('json-active', id === activeId);
@@ -87,6 +89,7 @@ function initJsonPrettifier() {
   document.getElementById('json-minify-btn').addEventListener('click', jsonMinify);
   document.getElementById('json-validate-btn').addEventListener('click', jsonValidate);
   document.getElementById('json-copy-btn').addEventListener('click', jsonCopy);
+  document.getElementById('json-expand-collapse-btn').addEventListener('click', jsonExpandCollapseAll);
   document.getElementById('json-clear-btn').addEventListener('click', () => {
     document.getElementById('json-input').value = '';
     const out = document.getElementById('json-output');
@@ -114,6 +117,35 @@ function initJsonPrettifier() {
     btn.textContent = folded ? '+' : '−';
     btn.title = folded ? 'Expand' : 'Collapse';
   });
+}
+
+function jsonExpandCollapseAll() {
+  const out = document.getElementById('json-output');
+  if (!out.classList.contains('jt-mode')) return; // only works in tree mode
+  
+  const collapsibles = out.querySelectorAll('.jt-collapsible');
+  if (collapsibles.length === 0) return;
+  
+  jsonTreeExpanded = !jsonTreeExpanded; // toggle state
+  
+  collapsibles.forEach(node => {
+    const btn = node.querySelector('.jt-toggle');
+    if (jsonTreeExpanded) {
+      node.classList.remove('folded');
+      if (btn) {
+        btn.textContent = '−';
+        btn.title = 'Collapse';
+      }
+    } else {
+      node.classList.add('folded');
+      if (btn) {
+        btn.textContent = '+';
+        btn.title = 'Expand';
+      }
+    }
+  });
+  
+  updateExpandCollapseBtnText();
 }
 
 function getJsonInput() {
@@ -160,6 +192,17 @@ function jsonFormat() {
   out.innerHTML = renderJsonTree(value);
   out.classList.remove('error', 'json-empty');
   out.classList.add('jt-mode');
+  
+  // Reset expand/collapse state when formatting new JSON
+  jsonTreeExpanded = true;
+  updateExpandCollapseBtnText();
+}
+
+function updateExpandCollapseBtnText() {
+  const btn = document.getElementById('json-expand-collapse-btn');
+  if (btn) {
+    btn.textContent = jsonTreeExpanded ? '⇄ Collapse All' : '⇄ Expand All';
+  }
 }
 
 function jsonMinify() {
