@@ -1062,22 +1062,52 @@ const _refreshSavingsDisplay = debounce(async function() {
     return;
   }
 
-  // Run the same apply pipeline as handleApplyOrUndo for the checked techniques.
+  // Run the apply pipeline sequentially, capturing the marginal token delta at each step.
+  // Each checked technique is applied on top of the previous output so marginals reflect
+  // real additive contributions — they sum to (approximately) the combined savings.
   const checkedIds = new Set(checked.map(cb => cb.dataset.id));
-  let out = currentInputText;
-  ['filler', 'verbose', 'overqualify', 'hedging', 'repetition', 'schema-arrays', 'json-keys', 'linebreaks', 'whitespace'].forEach(id => {
-    if (checkedIds.has(id)) {
-      const tech = TECHNIQUES.find(t => t.id === id);
-      if (tech) out = tech.apply(out);
+  const PIPELINE_ORDER = ['filler', 'verbose', 'overqualify', 'hedging', 'repetition',
+                          'schema-arrays', 'json-keys', 'linebreaks', 'whitespace'];
+
+  let out       = currentInputText;
+  let prevCount = currentTokenCount;
+
+  for (const id of PIPELINE_ORDER) {
+    if (!checkedIds.has(id)) continue;
+    const tech = TECHNIQUES.find(t => t.id === id);
+    if (!tech) continue;
+
+    out = tech.apply(out);
+    const { count: afterCount, method } = await countTokens(out, currentInputModel);
+
+    // Guard mid-loop: bail if undo mode was entered while awaiting the tokenizer
+    if (!btn || btn.textContent.startsWith('↩')) return;
+
+    const marginal = Math.max(0, prevCount - afterCount);
+    const card  = document.querySelector(`.technique-cb[data-id="${id}"]`)?.closest('.technique-card');
+    const badge = card?.querySelector('.technique-savings');
+    if (badge) {
+      badge.textContent = marginal === 0
+        ? '↓ ~0 tokens'
+        : (method === 'exact'
+            ? `↓ ${marginal} token${marginal !== 1 ? 's' : ''}`
+            : `↓ ~${marginal} token${marginal !== 1 ? 's' : ''}`);
     }
-  });
+
+    prevCount = afterCount;
+  }
+
+  // Apply the same normalisation pass as handleApplyOrUndo, then count once more for the
+  // Apply button combined figure. This keeps the Apply button consistent with what the user
+  // actually gets when they click it. (If `whitespace` was the last checked technique this
+  // count is effectively a no-op since whitespace already normalises.)
   out = out.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  const { count: finalCount } = await countTokens(out, currentInputModel);
 
-  const { count: afterCount } = await countTokens(out, currentInputModel);
-  const saved = Math.max(0, currentTokenCount - afterCount);
-
-  // Guard: discard result if we've entered undo mode while counting
+  // Guard: discard if undo mode entered during final count
   if (!btn || btn.textContent.startsWith('↩')) return;
+
+  const saved = Math.max(0, currentTokenCount - finalCount);
   savingsEl.textContent = saved > 0 ? 'saves ' + saved + ' token' + (saved !== 1 ? 's' : '') : '';
 }, 300);
 
