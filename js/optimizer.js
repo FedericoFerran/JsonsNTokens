@@ -1115,6 +1115,11 @@ const _refreshSavingsDisplay = debounce(async function() {
 function initSuggestions() {
   document.getElementById('clean-btn').addEventListener('click', handleApplyOrUndo);
   document.getElementById('select-all-btn').addEventListener('click', toggleSelectAll);
+  document.getElementById('input-analysis-toggle').addEventListener('click', () => {
+    if (typeof toggleCollapsiblePanel === 'function') {
+      toggleCollapsiblePanel('suggestions-panel', 'input-analysis-toggle');
+    }
+  });
   initProfileSelector();
 
   // ── Expand / collapse cards (delegated, registered once) ─────────────────
@@ -1389,6 +1394,7 @@ async function handleApplyOrUndo() {
     // Undo
     input.value = previousText;
     previousText = null;
+    if (typeof resetTokenDiff === 'function') resetTokenDiff();
     btn.textContent = '✨ Apply selected';
     btn.disabled = false;
     updateTokenCount();
@@ -1444,5 +1450,6 @@ async function handleApplyOrUndo() {
 
   btn.textContent = '↩ Undo' + deltaLabel;
   btn.disabled = false;
+  if (typeof setTokenDiffState === 'function') setTokenDiffState(originalText, text);
   updateTokenCount();
 }
