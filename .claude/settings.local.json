@@ -19,7 +19,15 @@
       "WebFetch(domain:ai.google.dev)",
       "WebFetch(domain:pricepertoken.com)",
       "WebFetch(domain:developers.openai.com)",
-      "WebFetch(domain:platform.openai.com)"
+      "WebFetch(domain:platform.openai.com)",
+      "PowerShell(New-Item *)",
+      "PowerShell(\\(Get-Content \"C:\\\\Users\\\\feder\\\\Documents\\\\Repos\\\\JsonsNTokens\\\\js\\\\utils.js\" | Measure-Object -Line\\).Lines)",
+      "Bash(sed -n '10,28p' \"C:\\\\Users\\\\feder\\\\Documents\\\\Repos\\\\JsonsNTokens\\\\js\\\\utils.js\")",
+      "Bash(sed -n '922,940p' app.js)",
+      "Read(//tmp/**)",
+      "Bash(Test-Path C:\\\\Users\\\\feder\\\\Documents\\\\Repos\\\\JsonsNTokens\\\\js *)",
+      "Bash(git *)",
+      "Bash(python3 *)"
     ]
   }
 }

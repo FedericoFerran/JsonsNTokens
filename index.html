@@ -83,10 +83,63 @@
       </div>
     </div>
 
+    <div class="token-diff-card hidden" id="token-diff-card" aria-live="polite">
+      <div class="widget-header">
+        <button class="widget-toggle" id="token-diff-toggle" type="button" aria-expanded="true" aria-controls="token-diff-content">−</button>
+        <span class="widget-title">Before / After</span>
+        <span class="badge" id="token-diff-model">—</span>
+      </div>
+      <div class="metric-grid" id="token-diff-content">
+        <div class="metric-item">
+          <span class="metric-label">Before</span>
+          <strong id="diff-before-tokens">—</strong>
+          <span id="diff-before-cost">—</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">After</span>
+          <strong id="diff-after-tokens">—</strong>
+          <span id="diff-after-cost">—</span>
+        </div>
+        <div class="metric-item metric-positive">
+          <span class="metric-label">Saved</span>
+          <strong id="diff-saved-tokens">—</strong>
+          <span id="diff-saved-cost">—</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Reduction</span>
+          <strong id="diff-reduction">—</strong>
+          <span id="diff-method">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="model-comparator hidden" id="model-comparator" aria-live="polite">
+      <div class="widget-header">
+        <button class="widget-toggle" id="model-comparator-toggle" type="button" aria-expanded="true" aria-controls="model-comparator-content">−</button>
+        <span class="widget-title">Model Cost Comparator</span>
+        <span class="badge" id="model-comparator-count">0 models</span>
+      </div>
+      <div class="table-wrap" id="model-comparator-content">
+        <table class="compact-table">
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Provider</th>
+              <th>Tokens</th>
+              <th>Input cost</th>
+              <th>Method</th>
+            </tr>
+          </thead>
+          <tbody id="model-comparator-body"></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- Suggestions panel (hidden until text entered) -->
     <div class="suggestions hidden" id="suggestions-panel">
       <div class="suggestions-header">
-        🔍 Input Analysis
+        <button class="widget-toggle" id="input-analysis-toggle" type="button" aria-expanded="true" aria-controls="input-tips-section">−</button>
+        <span class="suggestions-title">🔍 Input Analysis</span>
         <span class="badge" id="tips-count-badge">0 issues</span>
       </div>
 
@@ -118,6 +171,52 @@
       <button class="btn btn-secondary" id="json-format-btn">Format</button>
       <button class="btn btn-secondary" id="json-minify-btn">Minify</button>
       <button class="btn btn-secondary" id="json-validate-btn">Validate</button>
+    </div>
+
+    <div class="json-analyzer hidden" id="json-analyzer" aria-live="polite">
+      <div class="widget-header">
+        <button class="widget-toggle" id="json-analyzer-toggle" type="button" aria-expanded="true" aria-controls="json-analyzer-content">−</button>
+        <span class="widget-title">JSON Payload Analyzer</span>
+        <span class="badge" id="json-analyzer-summary">—</span>
+      </div>
+      <div id="json-analyzer-content">
+        <div class="metric-grid json-analyzer-metrics">
+          <div class="metric-item">
+            <span class="metric-label">Keys</span>
+            <strong id="json-metric-keys">—</strong>
+            <span>Total fields</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Depth</span>
+            <strong id="json-metric-depth">—</strong>
+            <span>Max nesting</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Objects</span>
+            <strong id="json-metric-objects">—</strong>
+            <span id="json-metric-arrays">— arrays</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Largest array</span>
+            <strong id="json-metric-largest-array">—</strong>
+            <span id="json-metric-largest-array-path">—</span>
+          </div>
+        </div>
+        <div class="analysis-lists">
+          <div>
+            <div class="analysis-list-title">Repeated keys</div>
+            <div class="analysis-list" id="json-repeated-keys">—</div>
+          </div>
+          <div>
+            <div class="analysis-list-title">Repeated string values</div>
+            <div class="analysis-list" id="json-repeated-values">—</div>
+          </div>
+          <div>
+            <div class="analysis-list-title">Homogeneous arrays</div>
+            <div class="analysis-list" id="json-homogeneous-arrays">—</div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="json-grid">

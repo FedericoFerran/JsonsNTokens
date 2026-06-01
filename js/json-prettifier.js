@@ -90,12 +90,22 @@ function initJsonPrettifier() {
   document.getElementById('json-validate-btn').addEventListener('click', jsonValidate);
   document.getElementById('json-copy-btn').addEventListener('click', jsonCopy);
   document.getElementById('json-expand-collapse-btn').addEventListener('click', jsonExpandCollapseAll);
+  document.getElementById('json-analyzer-toggle').addEventListener('click', () => {
+    if (typeof toggleCollapsiblePanel === 'function') {
+      toggleCollapsiblePanel('json-analyzer', 'json-analyzer-toggle');
+    }
+  });
   document.getElementById('json-clear-btn').addEventListener('click', () => {
     document.getElementById('json-input').value = '';
     const out = document.getElementById('json-output');
     out.innerHTML = '';
     out.className = 'json-output json-empty';
+    resetJsonAnalyzer();
     JSON_ACTION_BTNS.forEach(id => document.getElementById(id).classList.remove('json-active'));
+  });
+
+  document.getElementById('json-input').addEventListener('input', () => {
+    resetJsonAnalyzer();
   });
 
   // Auto-format when JSON is pasted into the input
@@ -184,6 +194,7 @@ function jsonFormat() {
 
   const { value, error } = parseJsonSafely(text);
   if (error) {
+    resetJsonAnalyzer();
     setJsonOutput('❌ Invalid JSON\n\n' + error, true);
     return;
   }
@@ -196,6 +207,7 @@ function jsonFormat() {
   // Reset expand/collapse state when formatting new JSON
   jsonTreeExpanded = true;
   updateExpandCollapseBtnText();
+  renderJsonAnalyzer(analyzeJsonPayload(value));
 }
 
 function updateExpandCollapseBtnText() {
@@ -212,11 +224,13 @@ function jsonMinify() {
 
   const { value, error } = parseJsonSafely(text);
   if (error) {
+    resetJsonAnalyzer();
     setJsonOutput('❌ Invalid JSON\n\n' + error, true);
     return;
   }
 
   setJsonOutput(escapeHtml(JSON.stringify(value)));
+  renderJsonAnalyzer(analyzeJsonPayload(value));
 }
 
 function jsonValidate() {
@@ -226,10 +240,12 @@ function jsonValidate() {
 
   const { value, error } = parseJsonSafely(text);
   if (error) {
+    resetJsonAnalyzer();
     setJsonOutput('❌ Invalid JSON\n\n' + error, true);
   } else {
     const keys = countJsonKeys(value);
     setJsonOutput(`✅ Valid JSON\n\n${keys} key${keys !== 1 ? 's' : ''} · ${text.length.toLocaleString()} chars`);
+    renderJsonAnalyzer(analyzeJsonPayload(value));
   }
 }
 
@@ -242,6 +258,111 @@ function countJsonKeys(obj) {
   let count = Object.keys(obj).length;
   for (const v of Object.values(obj)) count += countJsonKeys(v);
   return count;
+}
+
+function analyzeJsonPayload(value) {
+  const stats = {
+    totalKeys: 0,
+    maxDepth: 0,
+    objectCount: 0,
+    arrayCount: 0,
+    largestArray: { path: '—', length: 0 },
+    keyCounts: new Map(),
+    stringValueCounts: new Map(),
+  };
+
+  function visit(node, path, depth) {
+    stats.maxDepth = Math.max(stats.maxDepth, depth);
+
+    if (Array.isArray(node)) {
+      stats.arrayCount += 1;
+      if (node.length > stats.largestArray.length) {
+        stats.largestArray = { path, length: node.length };
+      }
+      node.forEach((item, index) => visit(item, path + '[' + index + ']', depth + 1));
+      return;
+    }
+
+    if (node && typeof node === 'object') {
+      stats.objectCount += 1;
+      Object.entries(node).forEach(([key, child]) => {
+        stats.totalKeys += 1;
+        stats.keyCounts.set(key, (stats.keyCounts.get(key) || 0) + 1);
+        visit(child, path === 'root' ? key : path + '.' + key, depth + 1);
+      });
+      return;
+    }
+
+    if (typeof node === 'string' && node.length >= 3) {
+      stats.stringValueCounts.set(node, (stats.stringValueCounts.get(node) || 0) + 1);
+    }
+  }
+
+  visit(value, 'root', 0);
+
+  const repeatedKeys = topRepeatedEntries(stats.keyCounts, 5);
+  const repeatedValues = topRepeatedEntries(stats.stringValueCounts, 5);
+  const homogeneousArrays = typeof findHomogeneousArrays === 'function'
+    ? findHomogeneousArrays(value, 'root', [], 0.8).slice(0, 5)
+    : [];
+
+  return {
+    totalKeys: stats.totalKeys,
+    maxDepth: stats.maxDepth,
+    objectCount: stats.objectCount,
+    arrayCount: stats.arrayCount,
+    largestArray: stats.largestArray,
+    repeatedKeys,
+    repeatedValues,
+    homogeneousArrays,
+  };
+}
+
+function topRepeatedEntries(counts, limit) {
+  return [...counts.entries()]
+    .filter(([, count]) => count >= 2)
+    .map(([value, count]) => ({ value, count }))
+    .sort((a, b) => b.count - a.count || String(b.value).length - String(a.value).length)
+    .slice(0, limit);
+}
+
+function renderJsonAnalyzer(analysis) {
+  document.getElementById('json-analyzer-summary').textContent =
+    analysis.objectCount.toLocaleString() + ' objects · ' + analysis.arrayCount.toLocaleString() + ' arrays';
+  document.getElementById('json-metric-keys').textContent = analysis.totalKeys.toLocaleString();
+  document.getElementById('json-metric-depth').textContent = analysis.maxDepth.toLocaleString();
+  document.getElementById('json-metric-objects').textContent = analysis.objectCount.toLocaleString();
+  document.getElementById('json-metric-arrays').textContent = analysis.arrayCount.toLocaleString() + ' arrays';
+  document.getElementById('json-metric-largest-array').textContent = analysis.largestArray.length.toLocaleString();
+  document.getElementById('json-metric-largest-array-path').textContent =
+    analysis.largestArray.length > 0 ? analysis.largestArray.path : 'No arrays';
+  document.getElementById('json-repeated-keys').innerHTML = renderAnalysisList(
+    analysis.repeatedKeys.map(item => `${item.value} ×${item.count}`)
+  );
+  document.getElementById('json-repeated-values').innerHTML = renderAnalysisList(
+    analysis.repeatedValues.map(item => `"${truncateForAnalysis(item.value, 48)}" ×${item.count}`)
+  );
+  document.getElementById('json-homogeneous-arrays').innerHTML = renderAnalysisList(
+    analysis.homogeneousArrays.map(item =>
+      `${item.path} · ${item.count} rows × ${item.keys.length} keys · ${item.coverage}%`
+    )
+  );
+  document.getElementById('json-analyzer').classList.remove('hidden');
+}
+
+function renderAnalysisList(items) {
+  if (!items.length) return '<span class="analysis-list-empty">None detected</span>';
+  return items.map(item => '<div>' + escapeHtml(item) + '</div>').join('');
+}
+
+function truncateForAnalysis(value, limit) {
+  const text = String(value);
+  return text.length > limit ? text.slice(0, limit - 1) + '…' : text;
+}
+
+function resetJsonAnalyzer() {
+  const analyzer = document.getElementById('json-analyzer');
+  if (analyzer) analyzer.classList.add('hidden');
 }
 
 function jsonCopy() {
