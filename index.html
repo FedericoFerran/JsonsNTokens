@@ -32,16 +32,19 @@
 
   <!-- TABS -->
   <div class="tabs" role="tablist">
-    <button class="tab-btn active" id="tab-tokens" role="tab" aria-selected="true" aria-controls="panel-tokens">
-      ⚡ Token Counter
-    </button>
-    <button class="tab-btn" id="tab-json" role="tab" aria-selected="false" aria-controls="panel-json">
+    <button class="tab-btn active" id="tab-json" role="tab" aria-selected="true" aria-controls="panel-json">
       { } JSON Prettifier
+    </button>
+    <button class="tab-btn" id="tab-markdown" role="tab" aria-selected="false" aria-controls="panel-markdown">
+      📝 Markdown Editor
+    </button>
+    <button class="tab-btn" id="tab-tokens" role="tab" aria-selected="false" aria-controls="panel-tokens">
+      ⚡ Token Counter
     </button>
   </div>
 
   <!-- ===== TOKEN COUNTER PANEL ===== -->
-  <div class="panel active" id="panel-tokens" role="tabpanel" aria-labelledby="tab-tokens">
+  <div class="panel" id="panel-tokens" role="tabpanel" aria-labelledby="tab-tokens">
 
     <div class="form-row">
       <label class="label" for="model-select">Model</label>
@@ -165,7 +168,7 @@
   </div><!-- /panel-tokens -->
 
   <!-- ===== JSON PRETTIFIER PANEL ===== -->
-  <div class="panel" id="panel-json" role="tabpanel" aria-labelledby="tab-json">
+  <div class="panel active" id="panel-json" role="tabpanel" aria-labelledby="tab-json">
 
     <div class="btn-row">
       <button class="btn btn-secondary" id="json-format-btn">Format</button>
@@ -246,13 +249,84 @@
 
   </div><!-- /panel-json -->
 
+  <!-- ===== MARKDOWN EDITOR PANEL ===== -->
+  <div class="panel" id="panel-markdown" role="tabpanel" aria-labelledby="tab-markdown">
+    <div class="md-editor md-split" id="md-editor">
+
+      <!-- Top action row -->
+      <div class="btn-row md-actions">
+        <div class="md-viewmode" role="group" aria-label="View mode">
+          <button class="json-copy-btn md-view-btn md-active" id="md-view-split" title="Split view">▥ Split</button>
+          <button class="json-copy-btn md-view-btn" id="md-view-editor" title="Editor only">✎ Editor</button>
+          <button class="json-copy-btn md-view-btn" id="md-view-preview" title="Preview only">👁 Preview</button>
+        </div>
+        <div class="md-actions-spacer"></div>
+        <input type="file" id="md-file" accept=".md,.markdown,.txt,text/markdown,text/plain" hidden />
+        <button class="json-copy-btn" id="md-upload-btn" title="Upload a markdown file">📁 Upload</button>
+        <button class="json-copy-btn" id="md-download-btn" title="Download as .md">⬇ Download</button>
+        <button class="json-copy-btn" id="md-copy-btn" title="Copy markdown to clipboard">📋 Copy</button>
+        <button class="json-copy-btn" id="md-fullscreen-btn" title="Toggle fullscreen">⛶ Fullscreen</button>
+        <button class="btn-ghost" id="md-clear-btn" title="Clear editor">✕ Clear</button>
+      </div>
+
+      <!-- Formatting toolbar -->
+      <div class="md-format-bar" role="toolbar" aria-label="Formatting">
+        <button class="md-fmt" data-fmt="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+        <button class="md-fmt" data-fmt="italic" title="Italic (Ctrl+I)"><i>I</i></button>
+        <button class="md-fmt" data-fmt="strike" title="Strikethrough"><s>S</s></button>
+        <span class="md-fmt-sep"></span>
+        <button class="md-fmt" data-fmt="h1" title="Heading 1">H1</button>
+        <button class="md-fmt" data-fmt="h2" title="Heading 2">H2</button>
+        <button class="md-fmt" data-fmt="h3" title="Heading 3">H3</button>
+        <span class="md-fmt-sep"></span>
+        <button class="md-fmt" data-fmt="ul" title="Bullet list">• List</button>
+        <button class="md-fmt" data-fmt="ol" title="Numbered list">1. List</button>
+        <button class="md-fmt" data-fmt="task" title="Task list">☑ Task</button>
+        <button class="md-fmt" data-fmt="quote" title="Blockquote">❝ Quote</button>
+        <span class="md-fmt-sep"></span>
+        <button class="md-fmt" data-fmt="code" title="Inline code">&lt;/&gt;</button>
+        <button class="md-fmt" data-fmt="codeblock" title="Code block">▤ Block</button>
+        <button class="md-fmt" data-fmt="link" title="Link (Ctrl+K)">🔗 Link</button>
+        <button class="md-fmt" data-fmt="table" title="Table">▦ Table</button>
+        <button class="md-fmt" data-fmt="hr" title="Horizontal rule">— Rule</button>
+      </div>
+
+      <!-- Stats bar -->
+      <div class="md-stats" aria-live="polite">
+        <span class="badge md-stat-tokens" id="md-stat-tokens" title="Token count for the model selected in Token Counter">⚡ 0 tokens</span>
+        <span class="md-stat" id="md-stat-words">0 words</span>
+        <span class="md-stat" id="md-stat-chars">0 chars</span>
+        <span class="md-stat" id="md-stat-lines">0 lines</span>
+        <span class="md-stat" id="md-stat-reading">0 min read</span>
+      </div>
+
+      <!-- Split panes -->
+      <div class="md-grid">
+        <div class="md-pane md-pane-input">
+          <textarea
+            id="md-input"
+            spellcheck="false"
+            placeholder="Write or paste Markdown here — the preview updates as you type…"
+          ></textarea>
+        </div>
+        <div class="md-pane md-pane-preview">
+          <div class="md-preview md-empty" id="md-preview" aria-live="polite"></div>
+        </div>
+      </div>
+
+    </div><!-- /md-editor -->
+  </div><!-- /panel-markdown -->
+
 </div><!-- /app-wrapper -->
 
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js" defer></script>
 <script src="js/utils.js" defer></script>
 <script src="js/tokenizer.js" defer></script>
 <script src="js/prices.js" defer></script>
 <script src="js/optimizer.js" defer></script>
 <script src="js/json-prettifier.js" defer></script>
+<script src="js/markdown-editor.js" defer></script>
 <script src="js/app.js" defer></script>
 </body>
 </html>
