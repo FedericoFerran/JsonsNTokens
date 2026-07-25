@@ -56,6 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Tabs
   document.getElementById('tab-tokens').addEventListener('click', () => switchTab('tokens'));
   document.getElementById('tab-json').addEventListener('click', () => switchTab('json'));
+  document.getElementById('tab-markdown').addEventListener('click', () => switchTab('markdown'));
 
   // Load everything else (prices → model selector → token counter → suggestions → JSON)
   initApp();
@@ -66,6 +67,7 @@ async function initApp() {
   initTokenCounter();
   initSuggestions();
   initJsonPrettifier();
+  initMarkdownEditor();
 }
 
 // ── TOKEN COUNTER UI ───────────────────────────────────────────────────────
