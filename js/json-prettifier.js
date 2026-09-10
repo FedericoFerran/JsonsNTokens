@@ -77,6 +77,7 @@ function renderPrimitive(value) {
 const JSON_ACTION_BTNS = ['json-format-btn', 'json-minify-btn', 'json-validate-btn'];
 
 let jsonTreeExpanded = true; // track current state of tree expansion
+let jsonClearedValue = null; // last value wiped by the Clear button, for ctrl+z restore
 
 function setActiveJsonBtn(activeId) {
   JSON_ACTION_BTNS.forEach(id => {
@@ -96,7 +97,9 @@ function initJsonPrettifier() {
     }
   });
   document.getElementById('json-clear-btn').addEventListener('click', () => {
-    document.getElementById('json-input').value = '';
+    const input = document.getElementById('json-input');
+    jsonClearedValue = input.value || null;
+    input.value = '';
     const out = document.getElementById('json-output');
     out.innerHTML = '';
     out.className = 'json-output json-empty';
@@ -106,6 +109,17 @@ function initJsonPrettifier() {
 
   document.getElementById('json-input').addEventListener('input', () => {
     resetJsonAnalyzer();
+  });
+
+  // Ctrl+Z restores content wiped by the Clear button (native undo covers normal typing)
+  document.getElementById('json-input').addEventListener('keydown', e => {
+    const input = e.target;
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z' && !input.value && jsonClearedValue) {
+      e.preventDefault();
+      input.value = jsonClearedValue;
+      jsonClearedValue = null;
+      jsonFormat();
+    }
   });
 
   // Auto-format when JSON is pasted into the input

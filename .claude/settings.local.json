@@ -38,7 +38,9 @@
       "mcp__plugin_model-apps_playwright__browser_run_code_unsafe",
       "Bash(rm -f json-dark.png json-dark-filled.png tokens-dark.png md-dark.png md-light.png json-light.png)",
       "Bash(rm -rf .playwright-mcp)",
-      "Bash(bash \"C:\\\\Users\\\\feder\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\6.2.0\\\\skills\\\\brainstorming\\\\scripts\\\\stop-server.sh\" --project-dir \"C:\\\\Users\\\\feder\\\\Documents\\\\Repos\\\\JsonsNTokens\")"
+      "Bash(bash \"C:\\\\Users\\\\feder\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\6.2.0\\\\skills\\\\brainstorming\\\\scripts\\\\stop-server.sh\" --project-dir \"C:\\\\Users\\\\feder\\\\Documents\\\\Repos\\\\JsonsNTokens\")",
+      "Bash(claude plugin *)",
+      "PowerShell(Get-ChildItem *)"
     ]
   }
 }
